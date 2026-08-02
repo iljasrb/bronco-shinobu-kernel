@@ -3,7 +3,7 @@
 A ReSukiSU kernel for the Motorola ThinkPhone (`bronco`) on LineageOS 23.2.
 
 > [!WARNING]
-> This project is in experimental state, before using this kernel make sure you know how to restore the device in case of bootloop and enough time.
+> This project is in experimental state, before using this kernel make sure you know how to restore the device in case of bootloop and that you have enough time to deal with possible issues.
 
 
 - Based on LineageOS kernel tree.
