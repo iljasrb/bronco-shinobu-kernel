@@ -1,0 +1,19 @@
+# Generated kernel and boot-image artifacts
+/out/
+/result
+
+# Backup created by sync-sources.sh --pull-latest
+/sources.env.bak
+
+# Device-specific firmware input
+/inputs/*.img
+
+# Temporary paths created by build-kernel.sh
+/sm8475-devicetrees
+/kernel-devicetrees/qcom/Kbuild
+
+# Independent upstream source repositories
+/kernel/
+/kernel-devicetrees/
+/KernelSU/
+/tools/
