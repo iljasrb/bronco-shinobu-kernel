@@ -7,7 +7,7 @@ A ReSukiSU kernel for the Motorola ThinkPhone (`bronco`) on LineageOS 23.2.
 
 
 - Based on LineageOS kernel tree.
-- Integrates ReSukiSU
+- Integrates ReSukiSU during the default build flow.
 - SUSFS **not** integrated.
 
 Flashable boot.img is published on [flac.moe/shinobu](https://flac.moe/shinobu)
@@ -39,27 +39,39 @@ First download the pinned kernel sources, device trees, ReSukiSU, boot-image too
 nix develop --command ./sync-sources.sh --reset
 ```
 
-`--reset` deletes local changes inside the downloaded source directories. Do not edit those directories directly unless you have backed up your work.
+`--reset` deletes local changes inside the downloaded source directories. Keep persistent kernel modifications as patches in `patches/`; do not rely on edits in `kernel/` surviving a source sync.
 
-Build the kernel:
-
-```sh
-nix run .#bronco-build -- ./build-kernel.sh
-```
-
-Create a flashable boot image:
+Build and package a flashable boot image:
 
 ```sh
-nix develop --command ./make-boot-image.sh
+nix run .#bronco-build -- ./build.sh
 ```
 
-The result is:
+The build entry point prints the project and source-pin information, then asks whether to integrate ReSukiSU and apply kernel patches. For an unattended default build:
+
+```sh
+nix run .#bronco-build -- ./build.sh --yes
+```
+
+Use `--skip-resukisu` or `--skip-patches` to skip either step explicitly. The result is:
 
 ```text
 out/boot-custom.img
 ```
 
 The packager reads the kernel version from `inputs/boot.img` and refuses to package a kernel for a different release. It preserves the original boot header and ramdisk, replacing only the kernel.
+
+## Local kernel modifications
+
+Put kernel-only patches in `patches/`, named with a lexical order such as `0001-my-change.patch`. Each patch is applied to `kernel/` after ReSukiSU integration. The build skips patches already present and stops on conflicts.
+
+Create a patch from only the files changed for your customization:
+
+```sh
+git -C kernel diff --binary -- path/to/changed-file.c > patches/0001-my-change.patch
+```
+
+Do not include ReSukiSU's generated driver integration in your patch; the build recreates it.
 
 ## Flash
 
@@ -92,7 +104,7 @@ fastboot reboot
 
 ## ReSukiSU
 
-ReSukiSU is built into this kernel. It uses the GKI tracepoint syscall hook; manual syscall hooks and SuSFS are disabled.
+By default, `build.sh` integrates ReSukiSU before compiling. `--skip-resukisu` disables that step. It uses the GKI tracepoint syscall hook; manual syscall hooks and SuSFS are disabled.
 
 Install a compatible ReSukiSU, KernelSU, MKSU, RKSU, or SukiSU-Ultra manager after booting. The manager's **Version** field shows the project version and ReSukiSU source revision:
 
@@ -125,6 +137,9 @@ Before updating LineageOS sources, replace `inputs/boot.img` with the boot image
 | --- | --- |
 | `sources.env` | Pinned source revisions and project version. |
 | `sync-sources.sh` | Downloads and resets the pinned sources. |
-| `build-kernel.sh` | Builds the kernel and Bronco device trees. |
-| `make-boot-image.sh` | Replaces the kernel inside `inputs/boot.img`. |
+| `build.sh` | Interactive build and packaging entry point. |
+| `scripts/integrate-resukisu.sh` | Integrates ReSukiSU into the kernel checkout. |
+| `scripts/apply-patches.sh` | Applies ordered kernel patches from `patches/`. |
+| `scripts/build-kernel.sh` | Builds the kernel and Bronco device trees. |
+| `scripts/make-boot-image.sh` | Replaces the kernel inside `inputs/boot.img`. |
 | `out/boot-custom.img` | Flashable image produced by the build. |
