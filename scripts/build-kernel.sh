@@ -81,8 +81,8 @@ KCONFIG_CONFIG="$out_dir/.config" "$kernel_dir/scripts/kconfig/merge_config.sh" 
     --enable LTO \
     --enable LTO_CLANG \
     --enable HAS_LTO_CLANG \
-    --enable LTO_CLANG_FULL \
-    --disable LTO_CLANG_THIN \
+    --enable LTO_CLANG_THIN \
+    --disable LTO_CLANG_FULL \
     --disable LTO_NONE \
     --enable CFI_CLANG \
     --enable CFI_CLANG_SHADOW \
