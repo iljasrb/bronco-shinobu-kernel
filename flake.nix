@@ -24,6 +24,7 @@
         perl
         pkg-config
         openssl.dev
+        zlib
         zlib.dev
         python3
       ];
