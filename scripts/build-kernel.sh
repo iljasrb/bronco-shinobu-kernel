@@ -26,6 +26,11 @@ readonly config_dir="$kernel_dir/arch/arm64/configs"
     exit 1
 }
 
+# Project-scoped ccache dir (clear with rm -rf .ccache).
+export CCACHE_DIR="${CCACHE_DIR:-$root_dir/.ccache}"
+# Reproducible build timestamp: date of the checked-out kernel commit.
+export KBUILD_BUILD_TIMESTAMP="$(date -u -d "$(git -C "$kernel_dir" show -s --format=%cI HEAD)" '+%Y-%m-%d %H:%M:%S +0000')"
+
 [[ -d "$devicetree_dir" ]] || {
     printf 'device-tree source is missing at %s\n' "$devicetree_dir" >&2
     exit 1
@@ -82,19 +87,24 @@ KCONFIG_CONFIG="$out_dir/.config" "$kernel_dir/scripts/kconfig/merge_config.sh" 
     --enable CFI_CLANG \
     --enable CFI_CLANG_SHADOW \
     --disable CFI_PERMISSIVE \
+    --enable TCP_CONG_ADVANCED \
+    --enable TCP_CONG_BBR \
+    --enable DEFAULT_BBR \
+    --disable DEFAULT_CUBIC \
     --enable KSU \
-    --enable KSU_TRACEPOINT_HOOK \
+    --enable KSU_SUSFS \
     --set-str KSU_FULL_NAME_FORMAT "ThinkPhone-Shinobu-v${PROJECT_VERSION}-%TAG_NAME%-%COMMIT_SHA%@%REPO_NAME%" \
     --disable KSU_MANUAL_HOOK \
-    --disable KSU_SUSFS
+    --disable KSU_TRACEPOINT_HOOK
 
 make -C "$kernel_dir" \
     O="$out_dir" \
     ARCH=arm64 \
     LLVM=1 \
     LLVM_IAS=1 \
-    HOSTCC=cc \
-    HOSTCXX=c++ \
+    CC="ccache clang" \
+    HOSTCC="ccache cc" \
+    HOSTCXX="ccache c++" \
     CROSS_COMPILE=aarch64-linux-gnu- \
     olddefconfig
 
@@ -103,8 +113,9 @@ make -C "$kernel_dir" \
     ARCH=arm64 \
     LLVM=1 \
     LLVM_IAS=1 \
-    HOSTCC=cc \
-    HOSTCXX=c++ \
+    CC="ccache clang" \
+    HOSTCC="ccache cc" \
+    HOSTCXX="ccache c++" \
     CROSS_COMPILE=aarch64-linux-gnu- \
     -j"$jobs" \
     Image dtbs

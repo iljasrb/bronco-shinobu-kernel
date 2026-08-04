@@ -10,7 +10,7 @@ usage() {
     cat <<'EOF'
 Usage:
   ./sync-sources.sh --reset
-  ./sync-sources.sh --pull-latest {all|lineage|resukisu|mkbootimg} --reset
+  ./sync-sources.sh --pull-latest {all|lineage|resukisu|mkbootimg|clang} --reset
 
 Synchronize source trees to the exact revisions in sources.env.
 --reset discards local changes and untracked files inside those source trees.
@@ -57,7 +57,7 @@ latest_revision() {
     local branch="$2"
     local revision
 
-    read -r revision _ < <(git ls-remote "$repository" "refs/heads/$branch")
+    read -r revision _ < <(git ls-remote "$repository" "refs/heads/$branch" "refs/tags/$branch")
     [[ -n "${revision:-}" ]] || {
         printf 'could not resolve branch %s from %s\n' "$branch" "$repository" >&2
         exit 1
@@ -95,6 +95,7 @@ pull_latest() {
             updates+="DEVICE_TREE_REVISION=$(latest_revision "$DEVICE_TREE_REPOSITORY" "$DEVICE_TREE_BRANCH")"$'\n'
             updates+="RESUKISU_REVISION=$(latest_revision "$RESUKISU_REPOSITORY" "$RESUKISU_BRANCH")"$'\n'
             updates+="MKBOOTIMG_REVISION=$(latest_revision "$MKBOOTIMG_REPOSITORY" "$MKBOOTIMG_BRANCH")"$'\n'
+            updates+="ANDROID_CLANG_REVISION=$(latest_revision "$ANDROID_CLANG_REPOSITORY" "$ANDROID_CLANG_REF")"$'\n'
             ;;
         lineage)
             updates+="KERNEL_REVISION=$(latest_revision "$KERNEL_REPOSITORY" "$KERNEL_BRANCH")"$'\n'
@@ -105,6 +106,9 @@ pull_latest() {
             ;;
         mkbootimg)
             updates+="MKBOOTIMG_REVISION=$(latest_revision "$MKBOOTIMG_REPOSITORY" "$MKBOOTIMG_BRANCH")"$'\n'
+            ;;
+        clang)
+            updates+="ANDROID_CLANG_REVISION=$(latest_revision "$ANDROID_CLANG_REPOSITORY" "$ANDROID_CLANG_REF")"$'\n'
             ;;
         *)
             printf 'unknown latest source target: %s\n' "$pull_target" >&2
@@ -148,6 +152,12 @@ prepare_repository() {
 prepare_android_clang() {
     local path="$root_dir/tools/android-clang"
 
+    [[ -n "$ANDROID_CLANG_REVISION" ]] || {
+        printf 'ANDROID_CLANG_REVISION is missing from %s; run sync-sources.sh --pull-latest clang --reset\n' \
+            "$source_manifest" >&2
+        exit 1
+    }
+
     if [[ ! -d "$path/.git" ]]; then
         mkdir -p "$(dirname -- "$path")"
         git clone --depth 1 --branch "$ANDROID_CLANG_REF" --filter=blob:none --sparse \
@@ -161,10 +171,10 @@ prepare_android_clang() {
             git -C "$path" reset --hard
             git -C "$path" clean -fd
         fi
-        git -C "$path" fetch --depth 1 origin "$ANDROID_CLANG_REF"
-        git -C "$path" checkout --detach FETCH_HEAD
     fi
 
+    git -C "$path" fetch --depth 1 origin "$ANDROID_CLANG_REVISION"
+    git -C "$path" checkout --detach FETCH_HEAD
     git -C "$path" sparse-checkout set "$ANDROID_CLANG_DIRECTORY"
 }
 

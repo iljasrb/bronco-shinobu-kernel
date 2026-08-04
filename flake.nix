@@ -10,9 +10,11 @@
       buildPackages = with pkgs; [
         bc
         bison
+        ccache
         clang
         elfutils
         flex
+        git
         gnumake
         elfutils.dev
         lld

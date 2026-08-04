@@ -8,7 +8,9 @@ A ReSukiSU kernel for the Motorola ThinkPhone (`bronco`) on LineageOS 23.2.
 
 - Based on LineageOS kernel tree.
 - Integrates ReSukiSU during the default build flow.
-- SUSFS **not** integrated.
+- Integrates SUSFS (kernel-side, `susfs4ksu` gki-android13-5.10) during the default build flow.
+- BBR default TCP congestion control (zram left stock — the ROM already runs it as a module).
+- MGLRU was ported from ACK android13-5.10 but **dropped**: it changes the mm ABI (`lruvec`, `page->flags` layout) and bootloops with the stock `vendor_dlkm` modules (same class as the documented vendor-tier bootloops).
 
 Flashable boot.img is published on [flac.moe/shinobu](https://flac.moe/shinobu)
 
@@ -58,6 +60,8 @@ Use `--skip-resukisu` or `--skip-patches` to skip either step explicitly. The re
 ```text
 out/boot-custom.img
 ```
+
+Every build records its exact inputs — source pins, the resolved Clang commit, patch hashes, `flake.lock`, and the image's SHA-256 — in `out/build-manifest`. Given that file, the image is fully reproducible or auditable.
 
 The packager reads the kernel version from `inputs/boot.img` and refuses to package a kernel for a different release. It preserves the original boot header and ramdisk, replacing only the kernel.
 
@@ -109,7 +113,7 @@ By default, `build.sh` integrates ReSukiSU before compiling. `--skip-resukisu` d
 Install a compatible ReSukiSU, KernelSU, MKSU, RKSU, or SukiSU-Ultra manager after booting. The manager's **Version** field shows the project version and ReSukiSU source revision:
 
 ```text
-ThinkPhone-Shinobu-v0.1.0-v4.1.0-59c99fdf@ReSukiSU
+ThinkPhone-Shinobu-v0.1.0.1-v4.1.0-f7be4a53@ReSukiSU
 ```
 
 Change `PROJECT_VERSION` in `sources.env` before a new project release. This label does not change `uname -r` or vendor-module compatibility.
@@ -124,10 +128,11 @@ To update a source pin to the newest commit on its configured branch:
 nix develop --command ./sync-sources.sh --pull-latest lineage --reset
 nix develop --command ./sync-sources.sh --pull-latest resukisu --reset
 nix develop --command ./sync-sources.sh --pull-latest mkbootimg --reset
+nix develop --command ./sync-sources.sh --pull-latest clang --reset
 nix develop --command ./sync-sources.sh --pull-latest all --reset
 ```
 
-The command saves the old manifest as `sources.env.bak` before changing it. `all` updates the LineageOS kernel and device trees, ReSukiSU, and `mkbootimg`. It does not update Android Clang automatically.
+The command saves the old manifest as `sources.env.bak` before changing it. `all` updates the LineageOS kernel and device trees, ReSukiSU, `mkbootimg`, and Android Clang. Clang is pinned by commit like every other source; an unpinned ref would silently change compilers when Google updates the prebuilt tag.
 
 Before updating LineageOS sources, replace `inputs/boot.img` with the boot image from the new target build. If you change LineageOS release lines, update `LINEAGE_BRANCH` first. Then build, package, and test the new image before daily use.
 

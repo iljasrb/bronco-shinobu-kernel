@@ -99,4 +99,24 @@ fi
 "$script_dir/build-kernel.sh"
 "$script_dir/make-boot-image.sh"
 
-printf 'Created %s\n' "${OUTPUT_BOOT_IMG:-$root_dir/out/boot-custom.img}"
+readonly out_dir="${OUT_DIR:-$root_dir/out}"
+readonly output_boot_img="${OUTPUT_BOOT_IMG:-$out_dir/boot-custom.img}"
+readonly manifest_path="$out_dir/build-manifest"
+{
+    printf 'project_version=%s\n' "$PROJECT_VERSION"
+    printf 'built_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf 'kernel_revision=%s\n' "$KERNEL_REVISION"
+    printf 'kernel_head=%s\n' "$(git -C "$root_dir/$KERNEL_DIRECTORY" rev-parse HEAD)"
+    printf 'devicetree_revision=%s\n' "$DEVICE_TREE_REVISION"
+    printf 'resukisu_revision=%s\n' "$RESUKISU_REVISION"
+    printf 'mkbootimg_revision=%s\n' "$MKBOOTIMG_REVISION"
+    printf 'clang_ref=%s\n' "$ANDROID_CLANG_REF"
+    printf 'clang_revision=%s\n' "$(git -C "$root_dir/tools/android-clang" rev-parse HEAD)"
+    printf 'flake_lock_sha256=%s\n' "$(sha256sum "$root_dir/flake.lock" | cut -d' ' -f1)"
+    printf 'boot_image_sha256=%s\n' "$(sha256sum "$output_boot_img" | cut -d' ' -f1)"
+    printf '%s\n' '[patches]'
+    (cd "$root_dir/patches" && sha256sum -- *.patch) 2>/dev/null || true
+} > "$manifest_path"
+printf 'Recorded build manifest at %s\n' "$manifest_path"
+
+printf 'Created %s\n' "$output_boot_img"
