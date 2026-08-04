@@ -91,7 +91,6 @@ readonly output_size="$(stat --format=%s "$work_dir/boot.img")"
 
 mkdir -p "$(dirname -- "$output_boot_img")"
 cp "$work_dir/boot.img" "$output_boot_img"
-truncate --size="$input_size" "$output_boot_img"
 
 python "$boot_tool_dir/unpack_bootimg.py" \
     --boot_img "$output_boot_img" \
