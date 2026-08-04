@@ -42,7 +42,7 @@ fastboot flash boot_<slot> out/boot-custom.img   # boot_a or boot_b
 fastboot reboot
 ```
 
-This default build is kernel-only: it never touches `dtbo`, `vendor_boot`, `vbmeta`, or `vendor_dlkm`, and AVB stays on. Vendor-partition experiments (e.g. a `vendor_dlkm` rebuild for features that can't ship in vmlinux) are possible — see `research-plan.md` — but off-default and bootloop/hang-risky: stage rollback images first.
+This default build is kernel-only: it never touches `dtbo`, `vendor_boot`, `vbmeta`, or `vendor_dlkm`, and AVB stays on. Vendor-partition experiments (e.g. a `vendor_dlkm` rebuild for features that can't ship in vmlinux) are off-default and bootloop/hang-risky: stage rollback images first.
 
 ### Roll back
 
@@ -72,5 +72,3 @@ nix develop --command ./sync-sources.sh --pull-latest all --reset
 | `build.sh` | Build + package entry point |
 | `patches/` | Kernel patches, applied in order |
 | `out/boot-custom.img` | Flashable image |
-| `research-plan.md` | Feature research + implementation plans (incl. MGLRU, vendor-tier) |
-| `research-archive.md` | Consolidated evidence, tooling, MGLRU port record |

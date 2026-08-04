@@ -5,6 +5,9 @@
 # Backup created by sync-sources.sh --pull-latest
 /sources.env.bak
 
+# Local research notes (not public)
+/plans/
+
 # Device-specific firmware input
 /inputs/*.img
 
