@@ -3,148 +3,72 @@
 A ReSukiSU kernel for the Motorola ThinkPhone (`bronco`) on LineageOS 23.2.
 
 > [!WARNING]
-> This project is in experimental state, before using this kernel make sure you know how to restore the device in case of bootloop and that you have enough time to deal with possible issues.
+> Experimental. Know how to recover from a bootloop before flashing.
 
+- Based on the LineageOS kernel tree, with ReSukiSU and SUSFS integrated into the build.
+- Flashable boot image: [flac.moe/shinobu](https://flac.moe/shinobu)
+- Builds a kernel + boot image only, not LineageOS itself.
 
-- Based on LineageOS kernel tree.
-- Integrates ReSukiSU during the default build flow.
-- Integrates SUSFS (kernel-side, `susfs4ksu` gki-android13-5.10) during the default build flow.
-- BBR default TCP congestion control (zram left stock — the ROM already runs it as a module).
-- MGLRU was ported from ACK android13-5.10 but **dropped**: it changes the mm ABI (`lruvec`, `page->flags` layout) and bootloops with the stock `vendor_dlkm` modules (same class as the documented vendor-tier bootloops).
+## Requirements
 
-Flashable boot.img is published on [flac.moe/shinobu](https://flac.moe/shinobu)
-
-This project builds a kernel and puts it into an Android boot image. It does not build LineageOS itself.
-
-## Before you start
-
-Requirements:
-
-- A Motorola ThinkPhone with an unlocked bootloader.
-- The exact LineageOS boot image that is currently installed on the phone.
-- `adb`, `fastboot`, and Nix on the build computer.
-- Enough free disk space for the Android compiler, kernel source, and build output.
-
-Copy the matching boot image to:
-
-```text
-inputs/boot.img
-```
-
-Do not use a boot image from a different LineageOS build. Keep a copy: it is the rollback image.
+- ThinkPhone with unlocked bootloader
+- The exact LineageOS boot image currently installed
+- `adb`, `fastboot`, Nix
+- Copy the boot image to `inputs/boot.img` (keep a copy — it's your rollback image)
 
 ## Build
 
-First download the pinned kernel sources, device trees, ReSukiSU, boot-image tools, and Android compiler:
+```sh
+nix develop --command ./sync-sources.sh --reset   # download pinned sources
+nix run .#bronco-build -- ./build.sh --yes        # build + package (unattended)
+```
+
+Result: `out/boot-custom.img`. Drop `--yes` for the interactive build; add `--skip-resukisu` or `--skip-patches` to skip a step.
+
+## Kernel patches
+
+Put patches in `patches/` as `0001-name.patch` (applied in order after ReSukiSU integration):
 
 ```sh
-nix develop --command ./sync-sources.sh --reset
+git -C kernel diff --binary -- path/to/file.c > patches/0001-my-change.patch
 ```
-
-`--reset` deletes local changes inside the downloaded source directories. Keep persistent kernel modifications as patches in `patches/`; do not rely on edits in `kernel/` surviving a source sync.
-
-Build and package a flashable boot image:
-
-```sh
-nix run .#bronco-build -- ./build.sh
-```
-
-The build entry point prints the project and source-pin information, then asks whether to integrate ReSukiSU and apply kernel patches. For an unattended default build:
-
-```sh
-nix run .#bronco-build -- ./build.sh --yes
-```
-
-Use `--skip-resukisu` or `--skip-patches` to skip either step explicitly. The result is:
-
-```text
-out/boot-custom.img
-```
-
-Every build records its exact inputs — source pins, the resolved Clang commit, patch hashes, `flake.lock`, and the image's SHA-256 — in `out/build-manifest`. Given that file, the image is fully reproducible or auditable.
-
-The packager reads the kernel version from `inputs/boot.img` and refuses to package a kernel for a different release. It preserves the original boot header and ramdisk, replacing only the kernel.
-
-## Local kernel modifications
-
-Put kernel-only patches in `patches/`, named with a lexical order such as `0001-my-change.patch`. Each patch is applied to `kernel/` after ReSukiSU integration. The build skips patches already present and stops on conflicts.
-
-Create a patch from only the files changed for your customization:
-
-```sh
-git -C kernel diff --binary -- path/to/changed-file.c > patches/0001-my-change.patch
-```
-
-Do not include ReSukiSU's generated driver integration in your patch; the build recreates it.
 
 ## Flash
-
-Boot the phone into the bootloader and find the active slot:
 
 ```sh
 adb reboot bootloader
 fastboot getvar current-slot
-```
-
-Flash the matching slot. If the active slot is `a`:
-
-```sh
-fastboot flash boot_a out/boot-custom.img
+fastboot flash boot_<slot> out/boot-custom.img   # boot_a or boot_b
 fastboot reboot
 ```
 
-If the active slot is `b`, use `boot_b` instead.
-
-Do not flash `dtbo`, `vendor_boot`, or `vbmeta` for this kernel-only test. Do not disable AVB verification.
+Don't flash `dtbo`, `vendor_boot`, or `vbmeta`, and don't disable AVB.
 
 ### Roll back
 
-If the phone does not boot, return to the bootloader with **Volume Down + Power** and flash the saved original image to the same slot. Example for slot `a`:
+Volume Down + Power → bootloader, then:
 
 ```sh
-fastboot flash boot_a inputs/boot.img
+fastboot flash boot_<slot> inputs/boot.img
 fastboot reboot
 ```
 
-## ReSukiSU
-
-By default, `build.sh` integrates ReSukiSU before compiling. `--skip-resukisu` disables that step. It uses the GKI tracepoint syscall hook; manual syscall hooks and SuSFS are disabled.
-
-Install a compatible ReSukiSU, KernelSU, MKSU, RKSU, or SukiSU-Ultra manager after booting. The manager's **Version** field shows the project version and ReSukiSU source revision:
-
-```text
-ThinkPhone-Shinobu-v0.1.0.1-v4.1.0-f7be4a53@ReSukiSU
-```
-
-Change `PROJECT_VERSION` in `sources.env` before a new project release. This label does not change `uname -r` or vendor-module compatibility.
-
 ## Update sources
 
-`sources.env` records the exact source revisions used by this project. Normal builds use those pins.
-
-To update a source pin to the newest commit on its configured branch:
+`sources.env` pins all source revisions. To update everything:
 
 ```sh
-nix develop --command ./sync-sources.sh --pull-latest lineage --reset
-nix develop --command ./sync-sources.sh --pull-latest resukisu --reset
-nix develop --command ./sync-sources.sh --pull-latest mkbootimg --reset
-nix develop --command ./sync-sources.sh --pull-latest clang --reset
 nix develop --command ./sync-sources.sh --pull-latest all --reset
 ```
 
-The command saves the old manifest as `sources.env.bak` before changing it. `all` updates the LineageOS kernel and device trees, ReSukiSU, `mkbootimg`, and Android Clang. Clang is pinned by commit like every other source; an unpinned ref would silently change compilers when Google updates the prebuilt tag.
+(`lineage`, `resukisu`, `mkbootimg`, `clang` work individually.) Before updating LineageOS, replace `inputs/boot.img` with the new build's boot image.
 
-Before updating LineageOS sources, replace `inputs/boot.img` with the boot image from the new target build. If you change LineageOS release lines, update `LINEAGE_BRANCH` first. Then build, package, and test the new image before daily use.
-
-## Important files
+## Files
 
 | Path | Purpose |
 | --- | --- |
-| `sources.env` | Pinned source revisions and project version. |
-| `sync-sources.sh` | Downloads and resets the pinned sources. |
-| `build.sh` | Interactive build and packaging entry point. |
-| `scripts/integrate-resukisu.sh` | Integrates ReSukiSU into the kernel checkout. |
-| `scripts/apply-patches.sh` | Applies ordered kernel patches from `patches/`. |
-| `scripts/build-kernel.sh` | Builds the kernel and Bronco device trees. |
-| `scripts/make-boot-image.sh` | Replaces the kernel inside `inputs/boot.img`. |
-| `out/boot-custom.img` | Flashable image produced by the build. |
+| `sources.env` | Pinned source revisions, project version |
+| `sync-sources.sh` | Downloads and resets pinned sources |
+| `build.sh` | Build + package entry point |
+| `patches/` | Kernel patches, applied in order |
+| `out/boot-custom.img` | Flashable image |
