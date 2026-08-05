@@ -19,18 +19,6 @@ jobs:
             bc bison ccache cpio flex libelf-dev libssl-dev make perl \
             pkg-config python3 python-is-python3 zlib1g-dev dwarves
 
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: .ccache
-          key: ccache-${{ hashFiles('sources.env', 'patches/*.patch') }}
-
-      - name: Cache ThinLTO
-        uses: actions/cache@v4
-        with:
-          path: out/.thinlto-cache
-          key: thinlto-${{ hashFiles('sources.env', 'patches/*.patch') }}
-
       - name: Fetch pinned boot image
         run: ./scripts/fetch-boot-image.sh
 
