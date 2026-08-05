@@ -11,16 +11,13 @@
         bc
         bison
         ccache
-        clang
         elfutils
         flex
+        gcc
         git
         gnumake
         elfutils.dev
-        lld
-        llvm
         openssl
-        pahole
         perl
         pkg-config
         openssl.dev

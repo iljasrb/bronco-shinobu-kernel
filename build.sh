@@ -96,6 +96,7 @@ if "$apply_patches" && confirm 'Apply kernel patches'; then
     "$script_dir/apply-patches.sh"
 fi
 
+"$script_dir/fetch-boot-image.sh"
 "$script_dir/build-kernel.sh"
 "$script_dir/make-boot-image.sh"
 

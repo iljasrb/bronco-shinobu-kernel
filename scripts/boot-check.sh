@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-# boot-check.sh [feature] — wait for the phone to boot, then verify a kernel
-# feature is live. Exit 0 = booted and feature present; 1 = booted, feature
-# missing; 2 = never booted (timeout).
-#
-# Usage (adb must be on PATH, e.g. `nix shell nixpkgs#android-tools -c ...`):
-#   scripts/boot-check.sh version     print /proc/version
-#   scripts/boot-check.sh root        adb root context is u:r:ksu:s0
-#   scripts/boot-check.sh tcp-cc      tcp_congestion_control == bbr
-#   scripts/boot-check.sh susfs       /proc/config.gz has CONFIG_KSU_SUSFS=y
-#   scripts/boot-check.sh input-boost cpu_input_boost params present + config=y
 set -euo pipefail
 
 feature="${1:-version}"

@@ -55,14 +55,83 @@ source "$source_manifest"
 latest_revision() {
     local repository="$1"
     local branch="$2"
-    local revision
+    local revision=""
 
-    read -r revision _ < <(git ls-remote "$repository" "refs/heads/$branch" "refs/tags/$branch")
-    [[ -n "${revision:-}" ]] || {
+    while IFS=$'\t' read -r sha ref; do
+        if [[ "$ref" == "refs/heads/$branch" || "$ref" == "refs/tags/$branch^{}" ]]; then
+            revision="$sha"
+            break
+        fi
+    done < <(git ls-remote "$repository" "refs/heads/$branch" "refs/tags/$branch^{}")
+    [[ -n "$revision" ]] || {
         printf 'could not resolve branch %s from %s\n' "$branch" "$repository" >&2
         exit 1
     }
     printf '%s\n' "$revision"
+}
+
+update_boot_image_pin() {
+    local api_url="https://download.lineageos.org/api/v2/devices/bronco/builds?version=${LINEAGE_BRANCH#lineage-}"
+    local json filepath boot_url tmp release kernel_sha sha
+
+    json="$(curl -fsSL --max-time 30 "$api_url")" || {
+        printf 'could not query %s; boot image pin left unchanged\n' "$api_url" >&2
+        return 1
+    }
+    filepath="$(printf '%s' "$json" | python3 -c 'import json, sys; sys.stdout.write(json.load(sys.stdin)[0]["files"][0]["filepath"])')" || {
+        printf 'could not parse LineageOS builds API; boot image pin left unchanged\n' >&2
+        return 1
+    }
+    boot_url="https://mirrorbits.lineageos.org${filepath%/*}/boot.img"
+    tmp="$(mktemp)" || return 1
+
+    if ! curl -fsSL --retry 3 -o "$tmp" "$boot_url"; then
+        rm -f "$tmp"
+        printf 'could not download %s; boot image pin left unchanged\n' "$boot_url" >&2
+        return 1
+    fi
+
+    release="$(
+        python3 - "$tmp" <<'PY'
+import re
+import struct
+import sys
+
+data = open(sys.argv[1], "rb").read()
+if data[:8] != b"ANDROID!":
+    sys.exit("not an Android boot image")
+if struct.unpack_from("<I", data, 40)[0] >= 3:
+    offset = 4096
+else:
+    offset = struct.unpack_from("<I", data, 36)[0]
+kernel = data[offset : offset + struct.unpack_from("<I", data, 8)[0]]
+if kernel[:2] == b"\x1f\x8b":
+    import gzip
+
+    kernel = gzip.decompress(kernel)
+match = re.search(rb"Linux version ([0-9][^ ]*) \(", kernel)
+if not match:
+    sys.exit("no kernel version string in boot image")
+sys.stdout.write(match.group(1).decode())
+PY
+    )" || {
+        rm -f "$tmp"
+        printf 'could not read kernel version from %s; boot image pin left unchanged\n' "$boot_url" >&2
+        return 1
+    }
+
+    sha="$(sha256sum "$tmp" | cut -d' ' -f1)"
+    rm -f "$tmp"
+
+    kernel_sha="${release##*-g}"
+    if [[ "${KERNEL_REVISION:0:12}" != "$kernel_sha" ]]; then
+        printf 'newest nightly %s ships kernel %s, pinned kernel is %s; boot image pin left unchanged — re-run after the next nightly\n' \
+            "$(basename "$(dirname "$filepath")")" "$kernel_sha" "${KERNEL_REVISION:0:12}" >&2
+        return 1
+    fi
+
+    printf 'BOOT_IMAGE_URL=%s\n' "$boot_url"
+    printf 'BOOT_IMAGE_SHA256=%s\n' "$sha"
 }
 
 update_manifest() {
@@ -113,6 +182,14 @@ pull_latest() {
         *)
             printf 'unknown latest source target: %s\n' "$pull_target" >&2
             exit 2
+            ;;
+    esac
+
+    case "$pull_target" in
+        all|lineage)
+            if boot_updates="$(update_boot_image_pin)"; then
+                updates+="$boot_updates"$'\n'
+            fi
             ;;
     esac
 

@@ -12,9 +12,8 @@ A ReSukiSU kernel for the Motorola ThinkPhone (`bronco`) on LineageOS 23.2.
 ## Requirements
 
 - ThinkPhone with unlocked bootloader
-- The exact LineageOS boot image currently installed
 - `adb`, `fastboot`, Nix
-- Copy the boot image to `inputs/boot.img` (keep a copy — it's your rollback image)
+- Fetch the pinned boot image with `./scripts/fetch-boot-image.sh` (the same image is your rollback image)
 
 ## Build
 
@@ -22,6 +21,8 @@ A ReSukiSU kernel for the Motorola ThinkPhone (`bronco`) on LineageOS 23.2.
 nix develop --command ./sync-sources.sh --reset   # download pinned sources
 nix run .#bronco-build -- ./build.sh --yes        # build + package (unattended)
 ```
+
+`build.sh` downloads and verifies the pinned boot image itself; the same image in `inputs/boot.img` doubles as your rollback image.
 
 Result: `out/boot-custom.img`. Drop `--yes` for the interactive build; add `--skip-resukisu` or `--skip-patches` to skip a step.
 
@@ -61,14 +62,16 @@ fastboot reboot
 nix develop --command ./sync-sources.sh --pull-latest all --reset
 ```
 
-(`lineage`, `resukisu`, `mkbootimg`, `clang` work individually.) Before updating LineageOS, replace `inputs/boot.img` with the new build's boot image.
+(`lineage`, `resukisu`, `mkbootimg`, `clang` work individually.) `lineage` and `all` also resolve the newest nightly's boot image and bump `BOOT_IMAGE_URL`/`BOOT_IMAGE_SHA256` when its kernel matches the pinned revision; if the newest nightly still ships an older kernel, the pin is left unchanged with a warning — re-run after the next nightly. `build.sh` fetches the pinned boot image itself, so no manual download is needed. To pin manually instead, `BOOT_IMAGE_URL` is published as `https://mirrorbits.lineageos.org/full/bronco/<date>/boot.img` next to the ROM zip; verify the sha256 after download.
 
 ## Files
 
 | Path | Purpose |
 | --- | --- |
-| `sources.env` | Pinned source revisions, project version |
+| `sources.env` | Pinned source revisions, project version, pinned boot image |
+| `.github/workflows/build.yml` | CI: builds the kernel and boot image on every push |
 | `sync-sources.sh` | Downloads and resets pinned sources |
+| `scripts/fetch-boot-image.sh` | Downloads and verifies the pinned boot image |
 | `build.sh` | Build + package entry point |
 | `patches/` | Kernel patches, applied in order |
 | `out/boot-custom.img` | Flashable image |

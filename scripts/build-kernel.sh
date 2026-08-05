@@ -26,9 +26,7 @@ readonly config_dir="$kernel_dir/arch/arm64/configs"
     exit 1
 }
 
-# Project-scoped ccache dir (clear with rm -rf .ccache).
 export CCACHE_DIR="${CCACHE_DIR:-$root_dir/.ccache}"
-# Reproducible build timestamp: date of the checked-out kernel commit.
 export KBUILD_BUILD_TIMESTAMP="$(date -u -d "$(git -C "$kernel_dir" show -s --format=%cI HEAD)" '+%Y-%m-%d %H:%M:%S +0000')"
 
 [[ -d "$devicetree_dir" ]] || {

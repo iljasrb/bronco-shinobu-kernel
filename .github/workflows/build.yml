@@ -1,0 +1,48 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison ccache cpio flex libelf-dev libssl-dev make perl \
+            pkg-config python3 python-is-python3 zlib1g-dev dwarves
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-${{ hashFiles('sources.env', 'patches/*.patch') }}
+
+      - name: Cache ThinLTO
+        uses: actions/cache@v4
+        with:
+          path: out/.thinlto-cache
+          key: thinlto-${{ hashFiles('sources.env', 'patches/*.patch') }}
+
+      - name: Fetch pinned boot image
+        run: ./scripts/fetch-boot-image.sh
+
+      - name: Sync pinned sources
+        run: ./sync-sources.sh --reset
+
+      - name: Build kernel and package boot image
+        run: ./build.sh --yes
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: shinobu-boot
+          path: |
+            out/boot-custom.img
+            out/build-manifest
