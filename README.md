@@ -9,14 +9,15 @@ A ReSukiSU kernel for the Motorola ThinkPhone (`bronco`) on LineageOS 23.2.
 - Flashable boot image: [flac.moe/shinobu](https://flac.moe/shinobu)
 - Builds a kernel + boot image only, not LineageOS itself.
 
+> The kernel will be developed until a stable state is reached, afterwards the project will enter maintenance mode.
+
 ## Features
 
-- ReSukiSU kernel root with SUSFS (`CONFIG_KSU`, `CONFIG_KSU_SUSFS`)
-- BBR default TCP congestion control (`CONFIG_TCP_CONG_BBR`, `CONFIG_DEFAULT_BBR`)
+- ReSukiSU with SUSFS
+- BBR default TCP (`CONFIG_TCP_CONG_BBR`, `CONFIG_DEFAULT_BBR`)
 - ThinLTO + CFI (shadow) build with the pinned Android clang
-- CPU input boost driver (`CONFIG_CPU_INPUT_BOOST`), tuned for the SM8475 cluster masks
+- CPU input boost driver (`CONFIG_CPU_INPUT_BOOST`), tuned for the SM8475.
 - LLVM Polly loop optimizations (`CONFIG_LLVM_POLLY`)
-- LineageOS 23.2 (`5.10.257-android13`) kernel tree, kernel-only boot image
 
 ## Requirements
 
