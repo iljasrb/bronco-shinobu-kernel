@@ -11,7 +11,7 @@ readonly source_manifest="$root_dir/sources.env"
 # shellcheck disable=SC1091
 source "$source_manifest"
 
-readonly out_dir="${OUT_DIR:-$root_dir/out}"
+readonly out_dir="$(realpath "${OUT_DIR:-$root_dir/out}")"
 readonly boot_tool_dir="$root_dir/$MKBOOTIMG_DIRECTORY"
 readonly input_boot_img="${INPUT_BOOT_IMG:-$root_dir/inputs/boot.img}"
 readonly kernel_image="${KERNEL_IMAGE:-$out_dir/arch/arm64/boot/Image}"
@@ -71,6 +71,9 @@ mkbootimg_args=()
 while IFS= read -r -d '' arg; do
     if [[ "$arg" == --kernel ]]; then
         IFS= read -r -d '' _
+    elif [[ "$arg" == --cmdline ]]; then
+        IFS= read -r -d '' value
+        mkbootimg_args+=(--cmdline "${value}${BOOT_CMDLINE_EXTRA:+ $BOOT_CMDLINE_EXTRA}")
     else
         mkbootimg_args+=("$arg")
     fi

@@ -8,6 +8,7 @@
 #   scripts/boot-check.sh root        adb root context is u:r:ksu:s0
 #   scripts/boot-check.sh tcp-cc      tcp_congestion_control == bbr
 #   scripts/boot-check.sh susfs       /proc/config.gz has CONFIG_KSU_SUSFS=y
+#   scripts/boot-check.sh input-boost cpu_input_boost params present + config=y
 set -euo pipefail
 
 feature="${1:-version}"
@@ -46,6 +47,12 @@ case "$feature" in
         cfg="$(adb shell 'zcat /proc/config.gz 2>/dev/null | grep -c "^CONFIG_KSU_SUSFS=y" || true' | tr -d '\r')"
         echo "CONFIG_KSU_SUSFS=y in running config: $cfg"
         [[ "$cfg" == "1" ]]
+        ;;
+    input-boost)
+        cfg="$(adb shell 'zcat /proc/config.gz 2>/dev/null | grep -c "^CONFIG_CPU_INPUT_BOOST=y" || true' | tr -d '\r')"
+        params="$(adb shell 'ls /sys/module/cpu_input_boost/parameters 2>/dev/null | wc -l' | tr -d '\r')"
+        echo "CONFIG_CPU_INPUT_BOOST=y in running config: $cfg; param files: $params"
+        [[ "$cfg" == "1" && "$params" == "12" ]]
         ;;
     *)
         echo "unknown feature: $feature" >&2

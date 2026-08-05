@@ -1,5 +1,6 @@
 # Generated kernel and boot-image artifacts
 /out/
+/out-*/
 /result
 
 # Backup created by sync-sources.sh --pull-latest
@@ -21,3 +22,4 @@
 /KernelSU/
 /tools/
 /.ccache/
+

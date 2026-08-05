@@ -12,7 +12,7 @@ readonly source_manifest="$root_dir/sources.env"
 source "$source_manifest"
 
 readonly kernel_dir="$root_dir/$KERNEL_DIRECTORY"
-readonly out_dir="${OUT_DIR:-$root_dir/out}"
+readonly out_dir="$(realpath "${OUT_DIR:-$root_dir/out}")"
 readonly devicetree_dir="$root_dir/$DEVICE_TREE_DIRECTORY"
 readonly resolved_devicetree_link="$root_dir/sm8475-devicetrees"
 readonly qcom_dts_dir="$devicetree_dir/qcom"
@@ -95,7 +95,20 @@ KCONFIG_CONFIG="$out_dir/.config" "$kernel_dir/scripts/kconfig/merge_config.sh" 
     --enable KSU_SUSFS \
     --set-str KSU_FULL_NAME_FORMAT "ThinkPhone-Shinobu-v${PROJECT_VERSION}-%TAG_NAME%-%COMMIT_SHA%@%REPO_NAME%" \
     --disable KSU_MANUAL_HOOK \
-    --disable KSU_TRACEPOINT_HOOK
+    --disable KSU_TRACEPOINT_HOOK \
+    --enable CPU_INPUT_BOOST \
+    --enable LLVM_POLLY \
+    --set-val LITTLE_CPU_MASK 15 \
+    --set-val BIG_CPU_MASK 112 \
+    --set-val PRIME_CPU_MASK 128 \
+    --set-val INPUT_BOOST_DURATION_MS 200 \
+    --set-val INPUT_BOOST_FREQ_LP 1132800 \
+    --set-val INPUT_BOOST_FREQ_PERF 1113600 \
+    --set-val INPUT_BOOST_FREQ_PRIME 1036800 \
+    --set-val MAX_BOOST_FREQ_LP 1670400 \
+    --set-val MAX_BOOST_FREQ_PERF 2150400 \
+    --set-val MAX_BOOST_FREQ_PRIME 2553600 \
+    ${EXTRA_KCONFIG:-}
 
 make -C "$kernel_dir" \
     O="$out_dir" \
@@ -118,4 +131,4 @@ make -C "$kernel_dir" \
     HOSTCXX="ccache c++" \
     CROSS_COMPILE=aarch64-linux-gnu- \
     -j"$jobs" \
-    Image dtbs
+    Image dtbs modules
