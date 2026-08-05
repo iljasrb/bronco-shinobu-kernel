@@ -2,8 +2,8 @@ name: build
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    tags:
+      - '*'
 
 jobs:
   build:
@@ -39,10 +39,11 @@ jobs:
       - name: Build kernel and package boot image
         run: ./build.sh --yes
 
-      - name: Upload build artifacts
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: shinobu-boot
+          name: shinobu-${{ github.ref_name }}
           path: |
-            out/boot-custom.img
-            out/build-manifest
+            out/shinobu-kernel-*.img
+            out/shinobu-kernel-*.img.sha
+            out/INFO.md
