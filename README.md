@@ -2,6 +2,8 @@
 
 A ReSukiSU kernel for the Motorola ThinkPhone (`bronco`) on LineageOS 23.2.
 
+[![build](https://github.com/iljasrb/bronco-shinobu-kernel/actions/workflows/build.yml/badge.svg)](https://github.com/iljasrb/bronco-shinobu-kernel/actions/workflows/build.yml)
+
 > [!WARNING]
 > Experimental. Know how to recover from a bootloop before flashing.
 
