@@ -99,6 +99,7 @@ fi
 "$script_dir/fetch-boot-image.sh"
 "$script_dir/build-kernel.sh"
 "$script_dir/make-boot-image.sh"
+"$script_dir/build-module.sh"
 
 readonly out_dir="${OUT_DIR:-$root_dir/out}"
 readonly output_boot_img="${OUTPUT_BOOT_IMG:-$out_dir/boot-custom.img}"
@@ -115,6 +116,8 @@ readonly manifest_path="$out_dir/build-manifest"
     printf 'clang_revision=%s\n' "$(git -C "$root_dir/tools/android-clang" rev-parse HEAD)"
     printf 'flake_lock_sha256=%s\n' "$(sha256sum "$root_dir/flake.lock" | cut -d' ' -f1)"
     printf 'boot_image_sha256=%s\n' "$(sha256sum "$output_boot_img" | cut -d' ' -f1)"
+    printf 'module_version=%s\n' "$PROJECT_VERSION"
+    printf 'module_zip_sha256=%s\n' "$(sha256sum "$out_dir/shinobu-battery.zip" | cut -d' ' -f1)"
     printf '%s\n' '[patches]'
     (cd "$root_dir/patches" && sha256sum -- *.patch) 2>/dev/null || true
 } > "$manifest_path"
@@ -146,6 +149,8 @@ cp "$output_boot_img" "$release_img"
     printf '| boot_image | %s |\n' "$BOOT_IMAGE_URL"
     printf '| boot_image_sha256 | %s |\n' "$BOOT_IMAGE_SHA256"
     printf '| image_sha256 | %s |\n' "$(cut -d' ' -f1 "$release_img.sha")"
+    printf '| module | shinobu-battery v%s (%s) |\n' "$PROJECT_VERSION" \
+        "$(cut -d' ' -f1 "$out_dir/shinobu-battery.zip.sha")"
 } > "$out_dir/INFO.md"
 
 printf 'Created %s (%s), %s.sha, INFO.md\n' "$release_img" "$output_boot_img" "$release_name"

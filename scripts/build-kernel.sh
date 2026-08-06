@@ -100,12 +100,9 @@ KCONFIG_CONFIG="$out_dir/.config" "$kernel_dir/scripts/kconfig/merge_config.sh" 
     --set-val BIG_CPU_MASK 112 \
     --set-val PRIME_CPU_MASK 128 \
     --set-val INPUT_BOOST_DURATION_MS 200 \
-    --set-val INPUT_BOOST_FREQ_LP 1132800 \
-    --set-val INPUT_BOOST_FREQ_PERF 1113600 \
-    --set-val INPUT_BOOST_FREQ_PRIME 1036800 \
-    --set-val MAX_BOOST_FREQ_LP 1670400 \
-    --set-val MAX_BOOST_FREQ_PERF 2150400 \
-    --set-val MAX_BOOST_FREQ_PRIME 2553600 \
+    --set-val INPUT_BOOST_FREQ_LP 998400 \
+    --set-val INPUT_BOOST_FREQ_PERF 1036800 \
+    --set-val INPUT_BOOST_FREQ_PRIME 979200 \
     ${EXTRA_KCONFIG:-}
 
 make -C "$kernel_dir" \

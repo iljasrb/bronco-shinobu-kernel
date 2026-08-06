@@ -34,7 +34,23 @@ nix run .#bronco-build -- ./build.sh --yes        # build + package (unattended)
 
 `build.sh` downloads and verifies the pinned boot image itself; the same image in `inputs/boot.img` doubles as your rollback image.
 
-Result: `out/boot-custom.img`. Drop `--yes` for the interactive build; add `--skip-resukisu` or `--skip-patches` to skip a step.
+Result: `out/boot-custom.img` (+ `out/shinobu-kernel-<version>.img`), plus the flashable `out/shinobu-battery.zip` module. Drop `--yes` for the interactive build; add `--skip-resukisu` or `--skip-patches` to skip a step.
+
+## Battery tuner module
+
+`module/` is a KernelSU module built alongside the kernel (`scripts/build-module.sh`, run by `build.sh`). It applies battery/performance profiles at boot. Caps are computed from the device's own frequency tables:
+
+| Profile | little | big | prime | GPU | walt governor |
+| --- | --- | --- | --- | --- | --- |
+| battery | stock | 80% | 70% | 60% | up 20 ms / down 10 ms, hispeed_load 95 |
+| balanced | stock | 90% | 85% | 80% | 10 ms / 10 ms, 90 |
+| performance | stock | stock | stock | stock | 5 ms / 5 ms, 80 |
+
+Also tuned: `cpu_input_boost` params, UFS clock scaling. Applied at boot.
+
+- Profiles persist in `/data/adb/shinobu-battery/profile` (survives module updates).
+- Switch: `su -c 'sh /data/adb/modules/shinobu-battery/action.sh apply battery'` (or `status`, `preview <profile>`).
+- WebUI: module page in the KernelSU/ReSukiSU manager — pick a profile to preview its values next to the current ones, then apply.
 
 ## Kernel patches
 
@@ -84,4 +100,7 @@ nix develop --command ./sync-sources.sh --pull-latest all --reset
 | `scripts/fetch-boot-image.sh` | Downloads and verifies the pinned boot image |
 | `build.sh` | Build + package entry point |
 | `patches/` | Kernel patches, applied in order |
+| `module/` | Battery tuner module source (KernelSU module + WebUI + tests) |
+| `scripts/build-module.sh` | Packages the flashable module zip |
 | `out/boot-custom.img` | Flashable image |
+| `out/shinobu-battery.zip` | Flashable battery tuner module |

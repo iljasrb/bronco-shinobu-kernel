@@ -28,6 +28,9 @@ jobs:
       - name: Build kernel and package boot image
         run: ./build.sh --yes
 
+      - name: Verify tuner engine self-check
+        run: bash module/test/test_tune.sh
+
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -35,4 +38,20 @@ jobs:
           path: |
             out/shinobu-kernel-*.img
             out/shinobu-kernel-*.img.sha
+            out/shinobu-battery.zip
+            out/shinobu-battery.zip.sha
+            out/shinobu-battery.json
+            out/INFO.md
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: out/INFO.md
+          files: |
+            out/shinobu-kernel-*.img
+            out/shinobu-kernel-*.img.sha
+            out/shinobu-battery.zip
+            out/shinobu-battery.zip.sha
+            out/shinobu-battery.json
             out/INFO.md

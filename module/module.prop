@@ -1,0 +1,7 @@
+id=shinobu-battery
+name=Shinobu Kernel: Battery Tuner
+version=@VERSION@
+versionCode=@VERSION_CODE@
+author=@iljasrb
+description=Device-adaptive battery tuning.
+updateJson=@UPDATE_JSON_URL@
