@@ -4,9 +4,11 @@ set -euo pipefail
 feature="${1:-version}"
 timeout="${BOOT_CHECK_TIMEOUT:-180}"
 
-adb wait-for-device
-
 deadline=$(( $(date +%s) + timeout ))
+if ! timeout "$timeout" adb wait-for-device; then
+    echo "boot-check: device did not appear within ${timeout}s" >&2
+    exit 2
+fi
 while (( $(date +%s) < deadline )); do
     booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
     [[ "$booted" == "1" ]] && break
@@ -42,7 +44,7 @@ case "$feature" in
         cfg="$(adb shell 'zcat /proc/config.gz 2>/dev/null | grep -c "^CONFIG_CPU_INPUT_BOOST=y" || true' | tr -d '\r')"
         params="$(adb shell 'ls /sys/module/cpu_input_boost/parameters 2>/dev/null | wc -l' | tr -d '\r')"
         echo "CONFIG_CPU_INPUT_BOOST=y in running config: $cfg; param files: $params"
-        [[ "$cfg" == "1" && "$params" == "12" ]]
+        [[ "$cfg" == "1" && "$params" == "4" ]]
         ;;
     *)
         echo "unknown feature: $feature" >&2

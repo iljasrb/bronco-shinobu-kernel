@@ -8,9 +8,11 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       buildPackages = with pkgs; [
+        android-tools
         bc
         bison
-        ccache
+        cpio
+        curl
         elfutils
         flex
         gcc
@@ -21,6 +23,7 @@
         perl
         pkg-config
         openssl.dev
+        pahole
         zlib
         zlib.dev
         python3

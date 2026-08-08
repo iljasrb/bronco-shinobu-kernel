@@ -10,7 +10,7 @@ LOG_FILE="$STATE_DIR/tune.log"
 PROFILE_FILE="$STATE_DIR/profile"
 CAPS_FILE="$STATE_DIR/caps"
 
-# SM8475 clusters, mirrors LITTLE/BIG/PRIME_CPU_MASK in build-kernel.sh.
+# SM8475 clusters.
 LITTLE_CPUS="0 1 2 3"
 PERF_CPUS="4 5 6"
 PRIME_CPUS="7"
@@ -18,6 +18,9 @@ POLICIES="policy0 policy4 policy7"
 
 log() {
     [ -d "$STATE_DIR" ] || mkdir -p "$STATE_DIR"
+    if [ -f "$LOG_FILE" ] && [ "$(wc -c <"$LOG_FILE")" -ge 1048576 ]; then
+        : >"$LOG_FILE"
+    fi
     printf '%s %s\n' "$(date '+%F %T')" "$*" >>"$LOG_FILE"
 }
 
@@ -69,7 +72,7 @@ gpu_cap_hz() {
         2>/dev/null || true)"
     [ -n "$table" ] || return 0
     max_hz="$(printf '%s\n' $table | sort -n | tail -1)"
-    [ "$pct" -ge 100 ] && { printf '%s\n' "$max_hz"; return 0; }
+    [ "$pct" -ge 100 ] && return 0
     target=$((max_hz / 100 * pct))
     for f in $table; do
         [ "$f" -le "$target" ] && [ "$f" -gt "${pick:-0}" ] && pick="$f"
@@ -124,7 +127,7 @@ cap_cpu() {
     path="$SYS/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
     cur="$(cat "$path" 2>/dev/null || true)"
     [ "$cur" = "$cap" ] && return 0
-    write_file "$path" "$cap"
+    write_file "$path" "$cap" || return 1
     printf '%s=%s\n' "$path" "$cur" >>"$CAPS_FILE"
 }
 
@@ -135,7 +138,7 @@ cap_gpu() {
     path="$SYS/class/kgsl/kgsl-3d0/devfreq/max_freq"
     cur="$(cat "$path" 2>/dev/null || true)"
     [ "$cur" = "$cap" ] && return 0
-    write_file "$path" "$cap"
+    write_file "$path" "$cap" || return 1
     printf '%s=%s\n' "$path" "$cur" >>"$CAPS_FILE"
 }
 
@@ -148,9 +151,11 @@ apply_profile() {
 
     # Restore previously recorded caps to their original values.
     if [ -f "$CAPS_FILE" ]; then
+        local restore_failed=0
         while IFS='=' read -r path original; do
-            write_file "$path" "$original"
+            write_file "$path" "$original" || restore_failed=1
         done <"$CAPS_FILE"
+        [ "$restore_failed" -eq 0 ] || return 1
         rm -f "$CAPS_FILE"
     fi
 
@@ -175,7 +180,7 @@ apply_profile() {
             "$HISPEED_LOAD"
     done
 
-    # Kernel input-boost params (this kernel's cpu_input_boost driver).
+    # Built-in input-boost parameters.
     local ib_param="$SYS/module/cpu_input_boost/parameters"
     write_file "$ib_param/input_boost_freq_little" "$IB_LP"
     write_file "$ib_param/input_boost_freq_big" "$IB_PERF"
@@ -254,7 +259,7 @@ preview_profile() {
 set_profile() {
     local profile="$1"
     apply_cpu_profile "$profile" || return 1
-    mkdir -p "$STATE_DIR"
-    printf '%s\n' "$profile" >"$PROFILE_FILE"
+    mkdir -p "$STATE_DIR" || return 1
+    printf '%s\n' "$profile" 2>/dev/null >"$PROFILE_FILE" || return 1
     apply_profile "$profile"
 }

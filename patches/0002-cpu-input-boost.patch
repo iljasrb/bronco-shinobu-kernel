@@ -1,486 +1,232 @@
-diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index 75b8877e789e..cd8b65b319be 100644
---- a/arch/arm64/Kconfig
-+++ b/arch/arm64/Kconfig
-@@ -1188,6 +1188,27 @@ config NR_CPUS
- 	range 2 4096
- 	default "256"
- 
-+config LITTLE_CPU_MASK
-+	int "Bitmask of available LITTLE CPUs"
-+	help
-+	  This is a bitmask specifying which of the CPUs are LITTLE in a
-+	  heterogeneous system. Use 0 if you are unsure, which just results in
-+	  this storing the bitmask of all available CPUs.
-+
-+config BIG_CPU_MASK
-+	int "Bitmask of available big CPUs"
-+	help
-+	  This is a bitmask specifying which of the CPUs are big in a
-+	  heterogeneous system. Use 0 if you are unsure, which just results in
-+	  this storing the bitmask of all available CPUs.
-+
-+config PRIME_CPU_MASK
-+	int "Bitmask of available prime CPUs"
-+	help
-+	  This is a bitmask specifying which of the CPUs are prime in a
-+	  heterogeneous system. Use 0 if you are unsure, which just results in
-+	  this storing the bitmask of all available CPUs.
-+
- config HOTPLUG_CPU
- 	bool "Support for hot-pluggable CPUs"
- 	select GENERIC_IRQ_MIGRATION
 diff --git a/drivers/cpufreq/Kconfig b/drivers/cpufreq/Kconfig
-index cf79fe19c094..0a7dd21d64de 100644
+index cf79fe19c..a3e648c8f 100644
 --- a/drivers/cpufreq/Kconfig
 +++ b/drivers/cpufreq/Kconfig
-@@ -210,6 +210,122 @@ config CPU_FREQ_GOV_SCHEDUTIL
+@@ -41,6 +41,14 @@ config CPU_FREQ_TIMES
  
- 	  If in doubt, say N.
+          If in doubt, say N.
  
 +config CPU_INPUT_BOOST
-+	bool "CPU Input Boost"
++	bool "Input-driven CPU frequency boost"
 +	help
-+	  Boosts the CPU on touchscreen and touchpad input, and allows for
-+	  boosting on other custom events, mainly which is intended to be for
-+	  boosting when there is a new frame ready to be rendered to the
-+	  display. The boost frequencies for this driver should be set so that
-+	  frame drops are near-zero at the boosted frequencies and power
-+	  consumption is minimized at said frequency combination.
++	  Apply short frequency QoS floors after touchscreen and key events.
++	  This implementation is tuned for the three SM8475 CPU policies.
 +
-+if CPU_INPUT_BOOST
++	  If in doubt, say N.
 +
-+config INPUT_BOOST_DURATION_MS
-+	int "Input boost duration"
-+	default "100"
-+	help
-+	  Input boost duration in milliseconds.
-+
-+config WAKE_BOOST_DURATION_MS
-+	int "Wake boost duration"
-+	default "1000"
-+	help
-+	  Wake boost duration in milliseconds.
-+
-+config INPUT_BOOST_FREQ_LP
-+	int "Low-power cluster boost freq"
-+	default "0"
-+	help
-+	  Input boost frequency for the low-power CPU cluster.
-+
-+config INPUT_BOOST_FREQ_PERF
-+	int "Performance cluster boost freq"
-+	default "0"
-+	help
-+	  Input boost frequency for the performance CPU cluster.
-+
-+config INPUT_BOOST_FREQ_PRIME
-+	int "Prime cluster boost freq"
-+	default "0"
-+	help
-+	  Input boost frequency for the prime CPU cluster.
-+
-+config MAX_BOOST_FREQ_LP
-+	int "Low-power cluster max-boost freq"
-+	default "0"
-+	help
-+	  Max-boost frequency for the low-power CPU cluster.
-+
-+config MAX_BOOST_FREQ_PERF
-+	int "Performance cluster max-boost freq"
-+	default "0"
-+	help
-+	  Max-boost frequency for the performance CPU cluster.
-+
-+config MAX_BOOST_FREQ_PRIME
-+	int "Prime cluster max-boost freq"
-+	default "0"
-+	help
-+	  Max-boost frequency for the prime CPU cluster.
-+
-+config CPU_FREQ_MIN_LP
-+	int "Default minimum frequency for the little cluster"
-+	default 0
-+	help
-+	  This sets the default minimum frequency (in kHz) for the little CPU
-+	  cluster.
-+
-+	  If in doubt, say 0 to use the hardware's minimum frequency.
-+
-+config CPU_FREQ_MIN_PERF
-+	int "Default minimum frequency for the big cluster"
-+	default 0
-+	help
-+	  This sets the default minimum frequency (in kHz) for the big CPU
-+	  cluster.
-+
-+	  If in doubt, say 0 to use the hardware's minimum frequency.
-+
-+config CPU_FREQ_MIN_PRIME
-+	int "Default minimum frequency for the prime cluster"
-+	default 0
-+	help
-+	  This sets the default minimum frequency (in kHz) for the prime CPU
-+	  cluster.
-+
-+	  If in doubt, say 0 to use the hardware's minimum frequency.
-+
-+config CPU_FREQ_IDLE_LP
-+	int "Default idle frequency for the little cluster"
-+	default 0
-+	help
-+	  This sets the default idle frequency (in kHz) for the little CPU
-+	  cluster.
-+
-+	  If in doubt, say 0 to use the hardware's minimum frequency.
-+
-+config CPU_FREQ_IDLE_PERF
-+	int "Default idle frequency for the big cluster"
-+	default 0
-+	help
-+	  This sets the default idle frequency (in kHz) for the big CPU
-+	  cluster.
-+
-+	  If in doubt, say 0 to use the hardware's minimum frequency.
-+
-+config CPU_FREQ_IDLE_PRIME
-+	int "Default idle frequency for the prime cluster"
-+	default 0
-+	help
-+	  This sets the default idle frequency (in kHz) for the prime CPU
-+	  cluster.
-+
-+	  If in doubt, say 0 to use the hardware's minimum frequency.
-+
-+endif
-+
- comment "CPU frequency scaling drivers"
- 
- config CPUFREQ_DT
+ choice
+ 	prompt "Default CPUFreq governor"
+ 	default CPU_FREQ_DEFAULT_GOV_USERSPACE if ARM_SA1100_CPUFREQ || ARM_SA1110_CPUFREQ
 diff --git a/drivers/cpufreq/Makefile b/drivers/cpufreq/Makefile
-index 25fb363bda19..41898d78246c 100644
+index 25fb363bd..ff8461543 100644
 --- a/drivers/cpufreq/Makefile
 +++ b/drivers/cpufreq/Makefile
-@@ -116,3 +116,4 @@ obj-$(CONFIG_LOONGSON1_CPUFREQ)		+= loongson1-cpufreq.o
- obj-$(CONFIG_SH_CPU_FREQ)		+= sh-cpufreq.o
- obj-$(CONFIG_SPARC_US2E_CPUFREQ)	+= sparc-us2e-cpufreq.o
- obj-$(CONFIG_SPARC_US3_CPUFREQ)		+= sparc-us3-cpufreq.o
+@@ -7,6 +7,7 @@ obj-$(CONFIG_CPU_FREQ_STAT)             += cpufreq_stats.o
+ 
+ # CPUfreq times
+ obj-$(CONFIG_CPU_FREQ_TIMES)		+= cpufreq_times.o
 +obj-$(CONFIG_CPU_INPUT_BOOST)		+= cpu_input_boost.o
+ 
+ # CPUfreq governors
+ obj-$(CONFIG_CPU_FREQ_GOV_PERFORMANCE)	+= cpufreq_performance.o
 diff --git a/drivers/cpufreq/cpu_input_boost.c b/drivers/cpufreq/cpu_input_boost.c
 new file mode 100644
-index 000000000000..edbea497fb50
+index 000000000..10f547a9b
 --- /dev/null
 +++ b/drivers/cpufreq/cpu_input_boost.c
-@@ -0,0 +1,405 @@
-+// SPDX-License-Identifier: GPL-2.0
-+/*
-+ * Copyright (C) 2018-2019 Sultan Alsawaf <sultan@kerneltoast.com>.
-+ */
-+
-+#define pr_fmt(fmt) "cpu_input_boost: " fmt
-+
+@@ -0,0 +1,303 @@
++// SPDX-License-Identifier: GPL-2.0-only
 +#include <linux/cpu.h>
 +#include <linux/cpufreq.h>
++#include <linux/init.h>
 +#include <linux/input.h>
-+#include <linux/kthread.h>
-+#include <linux/moduleparam.h>
++#include <linux/jiffies.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
 +#include <linux/slab.h>
-+#include <linux/version.h>
-+#include <linux/export.h>
++#include <linux/workqueue.h>
 +
-+/* The sched_param struct is located elsewhere in newer kernels */
-+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
-+#include <uapi/linux/sched/types.h>
-+#endif
++#define BOOST_POLICY_COUNT 3
++#define MIN_INPUT_INTERVAL_MS 50
 +
-+/* ponytail: screen-off gating and frame-ready boost cut (Meteoric's
-+ * msm_disp_notifier parts) — LOS msm drm has no blank notifier to hook;
-+ * input boosts fire on screen-off key/touch events too, 200 ms each.
-+ * Add when LOS display gains a DPMS notifier. */
-+
-+static unsigned int input_boost_freq_little __read_mostly =
-+	CONFIG_INPUT_BOOST_FREQ_LP;
-+static unsigned int input_boost_freq_big __read_mostly =
-+	CONFIG_INPUT_BOOST_FREQ_PERF;
-+static unsigned int input_boost_freq_prime __read_mostly =
-+	CONFIG_INPUT_BOOST_FREQ_PRIME;
-+static unsigned int max_boost_freq_little __read_mostly =
-+	CONFIG_MAX_BOOST_FREQ_LP;
-+static unsigned int max_boost_freq_big __read_mostly =
-+	CONFIG_MAX_BOOST_FREQ_PERF;
-+static unsigned int max_boost_freq_prime __read_mostly =
-+	CONFIG_MAX_BOOST_FREQ_PRIME;
-+static unsigned int cpu_freq_min_little __read_mostly =
-+	CONFIG_CPU_FREQ_MIN_LP;
-+static unsigned int cpu_freq_min_big __read_mostly =
-+	CONFIG_CPU_FREQ_MIN_PERF;
-+static unsigned int cpu_freq_min_prime __read_mostly =
-+	CONFIG_CPU_FREQ_MIN_PRIME;
-+static unsigned int cpu_freq_idle_little __read_mostly =
-+	CONFIG_CPU_FREQ_IDLE_LP;
-+static unsigned int cpu_freq_idle_big __read_mostly =
-+	CONFIG_CPU_FREQ_IDLE_PERF;
-+static unsigned int cpu_freq_idle_prime __read_mostly =
-+	CONFIG_CPU_FREQ_IDLE_PRIME;
-+
-+module_param(input_boost_freq_little, uint, 0644);
-+module_param(input_boost_freq_big, uint, 0644);
-+module_param(input_boost_freq_prime, uint, 0644);
-+module_param(max_boost_freq_little, uint, 0644);
-+module_param(max_boost_freq_big, uint, 0644);
-+module_param(max_boost_freq_prime, uint, 0644);
-+module_param(cpu_freq_min_little, uint, 0644);
-+module_param(cpu_freq_min_big, uint, 0644);
-+module_param(cpu_freq_min_prime, uint, 0644);
-+module_param(cpu_freq_idle_little, uint, 0644);
-+module_param(cpu_freq_idle_big, uint, 0644);
-+module_param(cpu_freq_idle_prime, uint, 0644);
-+
-+enum {
-+	SCREEN_OFF,
-+	INPUT_BOOST,
-+	MAX_BOOST
++struct boost_policy {
++	struct cpufreq_policy *policy;
++	struct freq_qos_request request;
 +};
 +
-+struct boost_drv {
-+	struct delayed_work input_unboost;
-+	struct delayed_work max_unboost;
-+	wait_queue_head_t boost_waitq;
-+	atomic_long_t max_boost_expires;
-+	unsigned long state;
++/* SM8475 policies. */
++static struct boost_policy boost_policies[BOOST_POLICY_COUNT];
++static DEFINE_MUTEX(boost_lock);
++static struct workqueue_struct *boost_wq;
++static struct work_struct boost_work;
++static struct delayed_work unboost_work;
++static unsigned long last_input;
++static unsigned long boost_deadline;
++static bool boost_active;
++
++static unsigned int input_boost_duration_ms = 200;
++static unsigned int input_boost_freq_little = 998400;
++static unsigned int input_boost_freq_big = 1036800;
++static unsigned int input_boost_freq_prime = 979200;
++
++module_param_named(input_boost_duration_ms, input_boost_duration_ms, uint, 0644);
++module_param_named(input_boost_freq_little, input_boost_freq_little, uint, 0644);
++module_param_named(input_boost_freq_big, input_boost_freq_big, uint, 0644);
++module_param_named(input_boost_freq_prime, input_boost_freq_prime, uint, 0644);
++
++static unsigned int boost_frequency(struct cpufreq_policy *policy)
++{
++	unsigned int frequency;
++
++	if (cpumask_test_cpu(7, policy->related_cpus))
++		frequency = READ_ONCE(input_boost_freq_prime);
++	else if (cpumask_test_cpu(4, policy->related_cpus))
++		frequency = READ_ONCE(input_boost_freq_big);
++	else
++		frequency = READ_ONCE(input_boost_freq_little);
++
++	return min(frequency, policy->cpuinfo.max_freq);
++}
++
++static int add_boost_policy(struct cpufreq_policy *policy)
++{
++	struct boost_policy *available = NULL;
++	int i, ret = 0;
++
++	mutex_lock(&boost_lock);
++	for (i = 0; i < BOOST_POLICY_COUNT; i++) {
++		if (boost_policies[i].policy == policy)
++			goto out;
++		if (!boost_policies[i].policy && !available)
++			available = &boost_policies[i];
++	}
++	if (!available) {
++		ret = -ENOSPC;
++		goto out;
++	}
++
++	ret = freq_qos_add_request(&policy->constraints, &available->request,
++				   FREQ_QOS_MIN,
++				   boost_active ? boost_frequency(policy) : 0);
++	if (ret >= 0) {
++		available->policy = policy;
++		ret = 0;
++	}
++out:
++	mutex_unlock(&boost_lock);
++	return ret;
++}
++
++static void remove_boost_policy(struct cpufreq_policy *policy)
++{
++	int i, ret;
++
++	mutex_lock(&boost_lock);
++	for (i = 0; i < BOOST_POLICY_COUNT; i++) {
++		if (boost_policies[i].policy != policy)
++			continue;
++		ret = freq_qos_remove_request(&boost_policies[i].request);
++		if (ret < 0)
++			pr_err("cpu_input_boost: failed to remove policy: %d\n", ret);
++		boost_policies[i].policy = NULL;
++		break;
++	}
++	mutex_unlock(&boost_lock);
++}
++
++static void remove_all_boost_policies(void)
++{
++	int i, ret;
++
++	mutex_lock(&boost_lock);
++	for (i = 0; i < BOOST_POLICY_COUNT; i++) {
++		if (!boost_policies[i].policy)
++			continue;
++		ret = freq_qos_remove_request(&boost_policies[i].request);
++		if (ret < 0)
++			pr_err("cpu_input_boost: failed to remove policy: %d\n", ret);
++		boost_policies[i].policy = NULL;
++	}
++	mutex_unlock(&boost_lock);
++}
++
++static int boost_policy_event(struct notifier_block *nb,
++			      unsigned long event, void *data)
++{
++	struct cpufreq_policy *policy = data;
++	int ret;
++
++	if (event == CPUFREQ_CREATE_POLICY) {
++		ret = add_boost_policy(policy);
++		if (ret)
++			pr_err("cpu_input_boost: failed to add policy: %d\n", ret);
++	} else if (event == CPUFREQ_REMOVE_POLICY) {
++		remove_boost_policy(policy);
++	}
++
++	return NOTIFY_OK;
++}
++
++static struct notifier_block boost_policy_notifier = {
++	.notifier_call = boost_policy_event,
 +};
 +
-+static void input_unboost_worker(struct work_struct *work);
-+static void max_unboost_worker(struct work_struct *work);
-+
-+static struct boost_drv boost_drv_g __read_mostly = {
-+	.input_unboost = __DELAYED_WORK_INITIALIZER(boost_drv_g.input_unboost,
-+						    input_unboost_worker, 0),
-+	.max_unboost = __DELAYED_WORK_INITIALIZER(boost_drv_g.max_unboost,
-+						  max_unboost_worker, 0),
-+	.boost_waitq = __WAIT_QUEUE_HEAD_INITIALIZER(boost_drv_g.boost_waitq)
-+};
-+
-+static unsigned int get_input_boost_freq(struct cpufreq_policy *policy)
++static void set_boost(bool enabled)
 +{
-+	unsigned int freq;
++	unsigned int frequency;
++	int i, ret;
 +
-+	if (cpumask_test_cpu(policy->cpu, cpu_lp_mask))
-+		freq = max(input_boost_freq_little, cpu_freq_min_little);
-+	else if (cpumask_test_cpu(policy->cpu, cpu_perf_mask))
-+		freq = max(input_boost_freq_big, cpu_freq_min_big);
-+	else
-+		freq = max(input_boost_freq_prime, cpu_freq_min_prime);
-+	return min(freq, policy->max);
++	mutex_lock(&boost_lock);
++	boost_active = enabled;
++	for (i = 0; i < BOOST_POLICY_COUNT; i++) {
++		if (!boost_policies[i].policy)
++			continue;
++		frequency = enabled ? boost_frequency(boost_policies[i].policy) : 0;
++		ret = freq_qos_update_request(&boost_policies[i].request, frequency);
++		if (ret < 0)
++			pr_err("cpu_input_boost: failed to update policy: %d\n", ret);
++	}
++	mutex_unlock(&boost_lock);
 +}
 +
-+static unsigned int get_max_boost_freq(struct cpufreq_policy *policy)
++static void apply_boost(struct work_struct *work)
 +{
-+	unsigned int freq;
++	unsigned long deadline, delay;
 +
-+	if (cpumask_test_cpu(policy->cpu, cpu_lp_mask))
-+		freq = max(max_boost_freq_little, cpu_freq_min_little);
-+	else if (cpumask_test_cpu(policy->cpu, cpu_perf_mask))
-+		freq = max(max_boost_freq_big, cpu_freq_min_big);
-+	else
-+		freq = max(max_boost_freq_prime, cpu_freq_min_prime);
-+	return min(freq, policy->max);
++	set_boost(true);
++	deadline = READ_ONCE(boost_deadline);
++	delay = time_after(deadline, jiffies) ? deadline - jiffies : 0;
++	mod_delayed_work(boost_wq, &unboost_work, delay);
 +}
 +
-+static unsigned int get_min_freq(struct cpufreq_policy *policy)
++static void remove_boost(struct work_struct *work)
 +{
-+	unsigned int freq;
++	unsigned long deadline = READ_ONCE(boost_deadline);
 +
-+	if (cpumask_test_cpu(policy->cpu, cpu_lp_mask))
-+		freq = cpu_freq_min_little;
-+	else if (cpumask_test_cpu(policy->cpu, cpu_perf_mask))
-+		freq = cpu_freq_min_big;
-+	else
-+		freq = cpu_freq_min_prime;
-+
-+	return max(freq, policy->cpuinfo.min_freq);
-+}
-+
-+static unsigned int get_idle_freq(struct cpufreq_policy *policy)
-+{
-+	unsigned int freq;
-+
-+	if (cpumask_test_cpu(policy->cpu, cpu_lp_mask))
-+		freq = cpu_freq_idle_little;
-+	else if (cpumask_test_cpu(policy->cpu, cpu_perf_mask))
-+		freq = cpu_freq_idle_big;
-+	else
-+		freq = cpu_freq_idle_prime;
-+
-+	return max(freq, policy->cpuinfo.min_freq);
-+}
-+
-+static void boost_adjust_notify(struct cpufreq_policy *policy)
-+{
-+	struct boost_drv *b = &boost_drv_g;
-+
-+	/* Unboost when the screen is off */
-+	if (test_bit(SCREEN_OFF, &b->state)) {
-+		policy->min = get_idle_freq(policy);
++	if (time_before(jiffies, deadline)) {
++		mod_delayed_work(boost_wq, &unboost_work, deadline - jiffies);
 +		return;
 +	}
++	set_boost(false);
++}
 +
-+	/* Boost CPU to maximum frequency for max boost */
-+	if (test_bit(MAX_BOOST, &b->state)) {
-+		policy->min = get_max_boost_freq(policy);
++static void input_boost_event(struct input_handle *handle, unsigned int type,
++			      unsigned int code, int value)
++{
++	unsigned long now = jiffies;
++
++	if (time_before(now, READ_ONCE(last_input) +
++			msecs_to_jiffies(MIN_INPUT_INTERVAL_MS)))
 +		return;
-+	}
-+
-+	/*
-+	 * Boost to policy->max if the boost frequency is higher. When
-+	 * unboosting, set policy->min to the absolute min freq for the CPU.
-+	 */
-+	if (test_bit(INPUT_BOOST, &b->state))
-+		policy->min = get_input_boost_freq(policy);
-+	else
-+		policy->min = get_min_freq(policy);
-+
-+	return;
++	WRITE_ONCE(last_input, now);
++	WRITE_ONCE(boost_deadline, now +
++		   msecs_to_jiffies(READ_ONCE(input_boost_duration_ms)));
++	queue_work(boost_wq, &boost_work);
 +}
 +
-+static void update_online_cpu_policy(void)
-+{
-+	unsigned int cpu;
-+        struct cpufreq_policy *policy;
-+
-+	get_online_cpus();
-+	for_each_possible_cpu(cpu) {
-+		if (cpu_online(cpu)) {
-+			if (cpumask_intersects(cpumask_of(cpu), cpu_lp_mask)) {
-+				cpufreq_update_policy(cpu);
-+                                policy = cpufreq_cpu_get(cpu);
-+                                boost_adjust_notify(policy);
-+                        }
-+			if (cpumask_intersects(cpumask_of(cpu), cpu_perf_mask)) {
-+				cpufreq_update_policy(cpu);
-+                                policy = cpufreq_cpu_get(cpu);
-+                                boost_adjust_notify(policy);
-+			}
-+                        if (cpumask_intersects(cpumask_of(cpu), cpu_prime_mask)) {
-+				cpufreq_update_policy(cpu);
-+                                policy = cpufreq_cpu_get(cpu);
-+                                boost_adjust_notify(policy);
-+                        }
-+		}
-+	}
-+	put_online_cpus();
-+}
-+
-+static void __cpu_input_boost_kick(struct boost_drv *b)
-+{
-+	if (test_bit(SCREEN_OFF, &b->state))
-+		return;
-+
-+	set_bit(INPUT_BOOST, &b->state);
-+	if (!mod_delayed_work(system_unbound_wq, &b->input_unboost,
-+			      msecs_to_jiffies(CONFIG_INPUT_BOOST_DURATION_MS)))
-+		wake_up(&b->boost_waitq);
-+}
-+
-+void cpu_input_boost_kick(void)
-+{
-+	struct boost_drv *b = &boost_drv_g;
-+
-+	__cpu_input_boost_kick(b);
-+}
-+EXPORT_SYMBOL(cpu_input_boost_kick);
-+
-+static void __cpu_input_boost_kick_max(struct boost_drv *b,
-+				       unsigned int duration_ms)
-+{
-+	unsigned long boost_jiffies = msecs_to_jiffies(duration_ms);
-+	unsigned long curr_expires, new_expires;
-+
-+	if (test_bit(SCREEN_OFF, &b->state))
-+		return;
-+
-+	do {
-+		curr_expires = atomic_long_read(&b->max_boost_expires);
-+		new_expires = jiffies + boost_jiffies;
-+
-+		/* Skip this boost if there's a longer boost in effect */
-+		if (time_after(curr_expires, new_expires))
-+			return;
-+	} while (atomic_long_cmpxchg(&b->max_boost_expires, curr_expires,
-+				     new_expires) != curr_expires);
-+
-+	set_bit(MAX_BOOST, &b->state);
-+	if (!mod_delayed_work(system_unbound_wq, &b->max_unboost,
-+			      boost_jiffies))
-+		wake_up(&b->boost_waitq);
-+}
-+
-+void cpu_input_boost_kick_max(unsigned int duration_ms)
-+{
-+	struct boost_drv *b = &boost_drv_g;
-+
-+	__cpu_input_boost_kick_max(b, duration_ms);
-+}
-+EXPORT_SYMBOL(cpu_input_boost_kick_max);
-+
-+static void input_unboost_worker(struct work_struct *work)
-+{
-+	struct boost_drv *b = container_of(to_delayed_work(work),
-+					   typeof(*b), input_unboost);
-+
-+	clear_bit(INPUT_BOOST, &b->state);
-+	wake_up(&b->boost_waitq);
-+}
-+
-+static void max_unboost_worker(struct work_struct *work)
-+{
-+	struct boost_drv *b = container_of(to_delayed_work(work),
-+					   typeof(*b), max_unboost);
-+
-+	clear_bit(MAX_BOOST, &b->state);
-+	wake_up(&b->boost_waitq);
-+}
-+
-+static int cpu_boost_thread(void *data)
-+{
-+	static const struct sched_param sched_max_rt_prio = {
-+		.sched_priority = MAX_RT_PRIO - 1
-+	};
-+	struct boost_drv *b = data;
-+	unsigned long old_state = 0;
-+
-+	sched_setscheduler_nocheck(current, SCHED_FIFO, &sched_max_rt_prio);
-+
-+	while (1) {
-+		bool should_stop = false;
-+		unsigned long curr_state;
-+
-+		wait_event(b->boost_waitq,
-+			(curr_state = READ_ONCE(b->state)) != old_state ||
-+			(should_stop = kthread_should_stop()));
-+
-+		if (should_stop)
-+			break;
-+
-+		old_state = curr_state;
-+		update_online_cpu_policy();
-+	}
-+
-+	return 0;
-+}
-+
-+static void cpu_input_boost_input_event(struct input_handle *handle,
-+					unsigned int type, unsigned int code,
-+					int value)
-+{
-+	struct boost_drv *b = handle->handler->private;
-+
-+	__cpu_input_boost_kick(b);
-+}
-+
-+static int cpu_input_boost_input_connect(struct input_handler *handler,
-+					 struct input_dev *dev,
-+					 const struct input_device_id *id)
++static int input_boost_connect(struct input_handler *handler,
++			       struct input_dev *dev,
++			       const struct input_device_id *id)
 +{
 +	struct input_handle *handle;
 +	int ret;
@@ -488,19 +234,16 @@ index 000000000000..edbea497fb50
 +	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
 +	if (!handle)
 +		return -ENOMEM;
-+
 +	handle->dev = dev;
 +	handle->handler = handler;
-+	handle->name = "cpu_input_boost_handle";
++	handle->name = "cpu-input-boost";
 +
 +	ret = input_register_handle(handle);
 +	if (ret)
 +		goto free_handle;
-+
 +	ret = input_open_device(handle);
 +	if (ret)
 +		goto unregister_handle;
-+
 +	return 0;
 +
 +unregister_handle:
@@ -510,120 +253,88 @@ index 000000000000..edbea497fb50
 +	return ret;
 +}
 +
-+static void cpu_input_boost_input_disconnect(struct input_handle *handle)
++static void input_boost_disconnect(struct input_handle *handle)
 +{
 +	input_close_device(handle);
 +	input_unregister_handle(handle);
 +	kfree(handle);
 +}
 +
-+static const struct input_device_id cpu_input_boost_ids[] = {
-+	/* Multi-touch touchscreen */
++static const struct input_device_id input_boost_ids[] = {
 +	{
 +		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
-+			INPUT_DEVICE_ID_MATCH_ABSBIT,
++			 INPUT_DEVICE_ID_MATCH_ABSBIT,
 +		.evbit = { BIT_MASK(EV_ABS) },
 +		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
 +			BIT_MASK(ABS_MT_POSITION_X) |
-+			BIT_MASK(ABS_MT_POSITION_Y) }
++			BIT_MASK(ABS_MT_POSITION_Y) },
 +	},
-+	/* Touchpad */
-+	{
-+		.flags = INPUT_DEVICE_ID_MATCH_KEYBIT |
-+			INPUT_DEVICE_ID_MATCH_ABSBIT,
-+		.keybit = { [BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH) },
-+		.absbit = { [BIT_WORD(ABS_X)] =
-+			BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) }
-+	},
-+	/* Keypad */
 +	{
 +		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
-+		.evbit = { BIT_MASK(EV_KEY) }
++		.evbit = { BIT_MASK(EV_KEY) },
 +	},
-+	{ }
++	{ },
 +};
 +
-+static struct input_handler cpu_input_boost_input_handler = {
-+	.event		= cpu_input_boost_input_event,
-+	.connect	= cpu_input_boost_input_connect,
-+	.disconnect	= cpu_input_boost_input_disconnect,
-+	.name		= "cpu_input_boost_handler",
-+	.id_table	= cpu_input_boost_ids
++static struct input_handler input_boost_handler = {
++	.event = input_boost_event,
++	.connect = input_boost_connect,
++	.disconnect = input_boost_disconnect,
++	.name = "cpu-input-boost",
++	.id_table = input_boost_ids,
 +};
++
++static void add_existing_policies(void)
++{
++	struct cpufreq_policy *policy;
++	unsigned int cpu;
++	int ret;
++
++	get_online_cpus();
++	for_each_online_cpu(cpu) {
++		policy = cpufreq_cpu_get(cpu);
++		if (!policy)
++			continue;
++		ret = add_boost_policy(policy);
++		if (ret)
++			pr_err("cpu_input_boost: failed to add CPU%u policy: %d\n",
++			       cpu, ret);
++		cpufreq_cpu_put(policy);
++	}
++	put_online_cpus();
++}
 +
 +static int __init cpu_input_boost_init(void)
 +{
-+	struct boost_drv *b = &boost_drv_g;
-+	struct task_struct *thread;
 +	int ret;
 +
-+	cpu_input_boost_input_handler.private = b;
-+	ret = input_register_handler(&cpu_input_boost_input_handler);
-+	if (ret) {
-+		pr_err("Failed to register input handler, err: %d\n", ret);
-+	}
++	boost_wq = alloc_ordered_workqueue("cpu_input_boost",
++					   WQ_HIGHPRI | WQ_MEM_RECLAIM);
++	if (!boost_wq)
++		return -ENOMEM;
++	INIT_WORK(&boost_work, apply_boost);
++	INIT_DELAYED_WORK(&unboost_work, remove_boost);
 +
-+	thread = kthread_run(cpu_boost_thread, b, "cpu_boostd");
-+	if (IS_ERR(thread)) {
-+		ret = PTR_ERR(thread);
-+		pr_err("Failed to start CPU boost thread, err: %d\n", ret);
-+		goto unregister_handler;
-+	}
++	ret = cpufreq_register_notifier(&boost_policy_notifier,
++					CPUFREQ_POLICY_NOTIFIER);
++	if (ret)
++		goto destroy_workqueue;
++	add_existing_policies();
 +
++	ret = input_register_handler(&input_boost_handler);
++	if (ret)
++		goto unregister_notifier;
 +	return 0;
 +
-+unregister_handler:
-+	input_unregister_handler(&cpu_input_boost_input_handler);
++unregister_notifier:
++	cpufreq_unregister_notifier(&boost_policy_notifier,
++				    CPUFREQ_POLICY_NOTIFIER);
++	remove_all_boost_policies();
++destroy_workqueue:
++	destroy_workqueue(boost_wq);
 +	return ret;
 +}
 +late_initcall(cpu_input_boost_init);
-diff --git a/include/linux/cpumask.h b/include/linux/cpumask.h
-index bb29102ec966..c35e099c31b0 100644
---- a/include/linux/cpumask.h
-+++ b/include/linux/cpumask.h
-@@ -96,6 +96,10 @@ extern struct cpumask __cpu_active_mask;
- #define cpu_present_mask  ((const struct cpumask *)&__cpu_present_mask)
- #define cpu_active_mask   ((const struct cpumask *)&__cpu_active_mask)
- 
-+extern const struct cpumask *const cpu_lp_mask;
-+extern const struct cpumask *const cpu_perf_mask;
-+extern const struct cpumask *const cpu_prime_mask;
 +
- extern atomic_t __num_online_cpus;
- 
- #if NR_CPUS > 1
-diff --git a/kernel/cpu.c b/kernel/cpu.c
-index 40432c9b4702..a8c92347e620 100644
---- a/kernel/cpu.c
-+++ b/kernel/cpu.c
-@@ -2824,6 +2824,30 @@ EXPORT_SYMBOL(__cpu_active_mask);
- atomic_t __num_online_cpus __read_mostly;
- EXPORT_SYMBOL(__num_online_cpus);
- 
-+#if CONFIG_LITTLE_CPU_MASK
-+static const unsigned long lp_cpu_bits = CONFIG_LITTLE_CPU_MASK;
-+const struct cpumask *const cpu_lp_mask = to_cpumask(&lp_cpu_bits);
-+#else
-+const struct cpumask *const cpu_lp_mask = cpu_possible_mask;
-+#endif
-+EXPORT_SYMBOL(cpu_lp_mask);
-+
-+#if CONFIG_BIG_CPU_MASK
-+static const unsigned long perf_cpu_bits = CONFIG_BIG_CPU_MASK;
-+const struct cpumask *const cpu_perf_mask = to_cpumask(&perf_cpu_bits);
-+#else
-+const struct cpumask *const cpu_perf_mask = cpu_possible_mask;
-+#endif
-+EXPORT_SYMBOL(cpu_perf_mask);
-+
-+#if CONFIG_PRIME_CPU_MASK
-+static const unsigned long prime_cpu_bits = CONFIG_PRIME_CPU_MASK;
-+const struct cpumask *const cpu_prime_mask = to_cpumask(&prime_cpu_bits);
-+#else
-+const struct cpumask *const cpu_prime_mask = cpu_possible_mask;
-+#endif
-+EXPORT_SYMBOL(cpu_prime_mask);
-+
- void init_cpu_present(const struct cpumask *src)
- {
- 	cpumask_copy(&__cpu_present_mask, src);
++MODULE_DESCRIPTION("SM8475 input CPU frequency boost");
++MODULE_LICENSE("GPL");

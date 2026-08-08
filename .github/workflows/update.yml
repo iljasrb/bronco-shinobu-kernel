@@ -1,0 +1,106 @@
+name: update LineageOS pins
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lineage-update
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.update.outputs.changed }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - name: Check newest compatible LineageOS build
+        id: update
+        run: |
+          ./sync-sources.sh --pull-latest lineage --pins-only
+          if git diff --quiet -- sources.env; then
+            echo 'changed=false' >>"$GITHUB_OUTPUT"
+          else
+            echo 'changed=true' >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Install build dependencies
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison cpio flex libelf-dev libssl-dev make perl \
+            pkg-config python3 python-is-python3 zlib1g-dev dwarves
+
+      - name: Sync candidate sources
+        if: steps.update.outputs.changed == 'true'
+        run: ./sync-sources.sh --reset
+
+      - name: Build candidate
+        if: steps.update.outputs.changed == 'true'
+        run: ./build.sh
+
+      - name: Verify tuner engine self-check
+        if: steps.update.outputs.changed == 'true'
+        run: bash module/test/test_tune.sh
+
+      - name: Upload candidate
+        if: steps.update.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lineage-update-candidate
+          path: |
+            sources.env
+            out/shinobu-kernel-*.img
+            out/shinobu-kernel-*.img.sha
+            out/shinobu-battery.zip
+            out/shinobu-battery.zip.sha
+            out/shinobu-battery.json
+            out/INFO.md
+            out/build-manifest
+
+  pull-request:
+    needs: candidate
+    if: needs.candidate.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: lineage-update-candidate
+          path: candidate
+
+      - name: Open update pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          branch=automation/lineage-update
+          cp candidate/sources.env sources.env
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B "$branch"
+          git add sources.env
+          git diff --cached --quiet && exit 0
+          git commit -m 'chore: update LineageOS source pins'
+          git push --force origin "HEAD:refs/heads/$branch"
+          [[ "$(gh pr list --head "$branch" --state open --json number --jq length)" != 0 ]] || gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$branch" \
+            --title 'chore: update LineageOS source pins' \
+            --body "Built successfully in [$GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). Review the upstream diff and flash the candidate artifact before merging."

@@ -22,7 +22,6 @@ for p in policy0 policy4 policy7; do
 done
 mkdir -p "$fake_sys/class/kgsl/kgsl-3d0/devfreq" \
     "$fake_sys/module/cpu_input_boost/parameters"
-mkdir -p "$fake_proc/sys/kernel"
 
 # little (A510): 300-2016 MHz; perf (A710): 633-2745; prime (X2): 787-3187
 for c in 0 1 2 3; do
@@ -50,7 +49,7 @@ done
 
 echo "900000000 862000000 815000000 765000000 710000000 645000000 580000000 515000000 439000000 364000000 324000000 285000000 220000000" \
     >"$fake_sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies"
-echo 900000000 >"$fake_sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
+echo 765000000 >"$fake_sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
 for p in input_boost_freq_little input_boost_freq_big input_boost_freq_prime; do
     echo 0 >"$fake_sys/module/cpu_input_boost/parameters/$p"
 done
@@ -89,11 +88,18 @@ pv="$(preview_profile battery)"
 [ "$(cat "$fake_sys/module/cpu_input_boost/parameters/input_boost_freq_little")" = 806400 ] \
     || fail "battery input boost little"
 
+rm -f "$fake_sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq"
+if apply_profile performance; then
+    fail "profile change must fail when an original cap cannot be restored"
+fi
+[ -f "$CAPS_FILE" ] || fail "failed restore must retain cap state"
+echo 2112000 >"$fake_sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq"
+
 apply_profile performance
 [ "$(cat "$fake_sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq")" = 3187200 ] \
     || fail "performance must leave prime at stock 3187200"
-[ "$(cat "$fake_sys/class/kgsl/kgsl-3d0/devfreq/max_freq")" = 900000000 ] \
-    || fail "performance must restore gpu"
+[ "$(cat "$fake_sys/class/kgsl/kgsl-3d0/devfreq/max_freq")" = 765000000 ] \
+    || fail "performance must restore the original GPU limit"
 [ "$(cat "$fake_sys/devices/system/cpu/cpufreq/policy0/walt/up_rate_limit_us")" = 5000 ] \
     || fail "performance walt up_rate_limit_us"
 
@@ -119,7 +125,21 @@ apply_profile battery
 apply_profile performance
 [ "$(cat "$fake_sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq")" = 2745600 ] \
     || fail "double-apply must still restore perf stock"
-[ "$(cat "$fake_sys/class/kgsl/kgsl-3d0/devfreq/max_freq")" = 900000000 ] \
-    || fail "double-apply must still restore gpu stock"
+[ "$(cat "$fake_sys/class/kgsl/kgsl-3d0/devfreq/max_freq")" = 765000000 ] \
+    || fail "double-apply must still restore the original GPU limit"
+
+before="$(cat "$fake_sys/devices/system/cpu/cpufreq/policy0/walt/up_rate_limit_us")"
+saved_profile_file="$PROFILE_FILE"
+PROFILE_FILE="$work/missing/profile"
+if set_profile balanced; then
+    fail "profile persistence failure must be reported"
+fi
+[ "$(cat "$fake_sys/devices/system/cpu/cpufreq/policy0/walt/up_rate_limit_us")" = "$before" ] \
+    || fail "persistence failure must not apply live settings"
+PROFILE_FILE="$saved_profile_file"
+
+truncate -s 1048576 "$LOG_FILE"
+log "rotation check"
+[ "$(wc -c <"$LOG_FILE")" -lt 1048576 ] || fail "log rotation"
 
 printf 'tuner self-check OK\n'

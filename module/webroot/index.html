@@ -165,8 +165,14 @@
     showTarget('big', 'big', current('v-big'), String);
     showTarget('prime', 'prime', current('v-prime'), String);
     showTarget('gpu', 'gpu', current('v-gpu'), String);
-    showTarget('walt', 'up', current('v-walt'),
-      function (up) { return up + ' / ' + targets.down + ' us'; });
+    var walt = document.getElementById('t-walt');
+    var currentWalt = current('v-walt').match(/\d+/g) || [];
+    var waltDiff = currentWalt[0] !== targets.up ||
+      currentWalt[1] !== targets.down;
+    walt.textContent = '\u2192 ' + targets.up + ' / ' + targets.down + ' us';
+    walt.classList.toggle('diff', waltDiff);
+    walt.classList.toggle('higher', waltDiff &&
+      parseFloat(targets.up) > parseFloat(currentWalt[0]));
   }
 
   function current(id) {

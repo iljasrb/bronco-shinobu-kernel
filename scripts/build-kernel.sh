@@ -26,7 +26,9 @@ readonly config_dir="$kernel_dir/arch/arm64/configs"
     exit 1
 }
 
-export CCACHE_DIR="${CCACHE_DIR:-$root_dir/.ccache}"
+export KBUILD_BUILD_USER=shinobu
+export KBUILD_BUILD_HOST=build
+export KBUILD_BUILD_VERSION=1
 export KBUILD_BUILD_TIMESTAMP="$(date -u -d "$(git -C "$kernel_dir" show -s --format=%cI HEAD)" '+%Y-%m-%d %H:%M:%S +0000')"
 
 [[ -d "$devicetree_dir" ]] || {
@@ -95,14 +97,6 @@ KCONFIG_CONFIG="$out_dir/.config" "$kernel_dir/scripts/kconfig/merge_config.sh" 
     --disable KSU_MANUAL_HOOK \
     --disable KSU_TRACEPOINT_HOOK \
     --enable CPU_INPUT_BOOST \
-    --enable LLVM_POLLY \
-    --set-val LITTLE_CPU_MASK 15 \
-    --set-val BIG_CPU_MASK 112 \
-    --set-val PRIME_CPU_MASK 128 \
-    --set-val INPUT_BOOST_DURATION_MS 200 \
-    --set-val INPUT_BOOST_FREQ_LP 998400 \
-    --set-val INPUT_BOOST_FREQ_PERF 1036800 \
-    --set-val INPUT_BOOST_FREQ_PRIME 979200 \
     ${EXTRA_KCONFIG:-}
 
 make -C "$kernel_dir" \
@@ -110,20 +104,22 @@ make -C "$kernel_dir" \
     ARCH=arm64 \
     LLVM=1 \
     LLVM_IAS=1 \
-    CC="ccache clang" \
-    HOSTCC="ccache cc" \
-    HOSTCXX="ccache c++" \
+    CC=clang \
+    HOSTCC=cc \
+    HOSTCXX=c++ \
     CROSS_COMPILE=aarch64-linux-gnu- \
     olddefconfig
+
+rm -f "$out_dir/kernel/configs.o"
 
 make -C "$kernel_dir" \
     O="$out_dir" \
     ARCH=arm64 \
     LLVM=1 \
     LLVM_IAS=1 \
-    CC="ccache clang" \
-    HOSTCC="ccache cc" \
-    HOSTCXX="ccache c++" \
+    CC=clang \
+    HOSTCC=cc \
+    HOSTCXX=c++ \
     CROSS_COMPILE=aarch64-linux-gnu- \
     -j"$jobs" \
     Image dtbs modules

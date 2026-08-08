@@ -14,7 +14,9 @@ source_manifest="$root_dir/sources.env"
 source "$source_manifest"
 
 module_dir="$root_dir/module"
-out_dir="$(realpath "${OUT_DIR:-$root_dir/out}")"
+out_dir="${OUT_DIR:-$root_dir/out}"
+mkdir -p "$out_dir"
+out_dir="$(realpath "$out_dir")"
 work_dir="$(mktemp -d "$out_dir/module-package.XXXXXX")"
 trap 'rm -rf "$work_dir"' EXIT
 
@@ -70,7 +72,7 @@ cat >"$out_dir/shinobu-battery.json" <<EOF
   "version": "v${PROJECT_VERSION}",
   "versionCode": ${version_code},
   "zipUrl": "https://github.com/${repo}/releases/latest/download/shinobu-battery.zip",
-  "changelog": "See https://github.com/${repo}/releases"
+  "changelog": "https://github.com/${repo}/releases/latest/download/INFO.md"
 }
 EOF
 
@@ -81,7 +83,20 @@ chmod 755 "$work_dir/module/service.sh" "$work_dir/module/action.sh" \
 # Stable name: the manifest's zipUrl points here.
 module_zip="$out_dir/shinobu-battery.zip"
 rm -f "$module_zip" "$module_zip.sha"
-(cd "$work_dir/module" && python3 -m zipfile -c "$module_zip" .)
+python3 - "$work_dir/module" "$module_zip" <<'PY'
+import pathlib
+import sys
+import zipfile
+
+root = pathlib.Path(sys.argv[1])
+with zipfile.ZipFile(sys.argv[2], "w", zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+    for path in sorted(item for item in root.rglob("*") if item.is_file()):
+        info = zipfile.ZipInfo(path.relative_to(root).as_posix(), (1980, 1, 1, 0, 0, 0))
+        info.compress_type = zipfile.ZIP_DEFLATED
+        info.create_system = 3
+        info.external_attr = path.stat().st_mode << 16
+        archive.writestr(info, path.read_bytes())
+PY
 (cd "$out_dir" && sha256sum "$(basename "$module_zip")" >"$(basename "$module_zip").sha")
 
 printf 'Created %s (+ .sha)\n' "$module_zip"

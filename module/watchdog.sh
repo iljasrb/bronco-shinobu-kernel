@@ -7,6 +7,12 @@ MODDIR="${MODDIR:-/data/adb/modules/shinobu-battery}"
 . "$MODDIR/common.sh"
 
 PID_FILE="$STATE_DIR/watchdog.pid"
+cleanup() {
+    [ "$(cat "$PID_FILE" 2>/dev/null)" = "$$" ] && rm -f "$PID_FILE"
+    return 0
+}
+trap cleanup EXIT
+trap 'exit 0' HUP INT TERM
 if [ -f "$PID_FILE" ]; then
     # Only kill a live watchdog: the PID may be recycled after reboot.
     old="$(cat "$PID_FILE" 2>/dev/null || true)"
