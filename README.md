@@ -11,8 +11,6 @@ A ReSukiSU kernel for the Motorola ThinkPhone (`bronco`) on LineageOS 23.2.
 - Flashable boot image: [flac.moe/shinobu](https://flac.moe/shinobu)
 - Builds a kernel + boot image only, not LineageOS itself.
 
-> The kernel will be developed until a stable state is reached, afterwards the project will enter maintenance mode.
-
 ## Features
 
 - ReSukiSU with SUSFS
@@ -91,7 +89,7 @@ nix develop --command ./sync-sources.sh --pull-latest all --reset
 
 (`lineage`, `resukisu`, `mkbootimg`, `clang` work individually.) `lineage` and `all` update the kernel, device-tree, boot URL, and boot sha256 as one compatible set only when the newest build for `LINEAGE_BRANCH` ships the current kernel branch tip. Otherwise the LineageOS pins stay unchanged with a warning; re-run after the next build. `build.sh` fetches the pinned boot image itself, so no manual download is needed. To pin manually instead, use the `boot.img` URL and sha256 published by the [LineageOS builds API](https://download.lineageos.org/api/v2/devices/bronco/builds).
 
-`.github/workflows/update.yml` checks each Monday, builds a compatible candidate, and opens or refreshes `automation/lineage-update` only after the build and tuner self-check pass. Merge only after reviewing the upstream delta and flash-testing the workflow artifact; releases remain manual tags. The repository must allow GitHub Actions to create pull requests.
+`.github/workflows/update.yml` checks LineageOS updates weekly and builds compatible candidates.
 
 ## Files
 
