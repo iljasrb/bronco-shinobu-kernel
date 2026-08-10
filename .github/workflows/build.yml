@@ -27,14 +27,25 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
 
       - name: Bump version and push tag
         run: |
           source ./sources.env
           version="$(awk -F. -v OFS=. '{$(NF)++; print}' <<< "$PROJECT_VERSION")"
+          # Bump the module version only when module/ changed since the last
+          # release tag; unchanged module keeps its version so ReSukiSU managers
+          # don't offer a pointless update.
+          module_version="$MODULE_VERSION"
+          prev_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          if [ -z "$prev_tag" ] || ! git diff --quiet "$prev_tag" -- module/; then
+            module_version="$(awk -F. -v OFS=. '{$(NF)++; print}' <<< "$MODULE_VERSION")"
+          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           sed -i "s/^PROJECT_VERSION=.*/PROJECT_VERSION=\"$version\"/" sources.env
+          sed -i "s/^MODULE_VERSION=.*/MODULE_VERSION=\"$module_version\"/" sources.env
           git add sources.env
           git commit -m "release: v$version"
           git push origin "HEAD:${{ github.ref }}"

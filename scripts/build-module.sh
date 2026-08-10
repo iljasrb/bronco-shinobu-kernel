@@ -44,7 +44,7 @@ fi
 # "0.1.0.2" -> 10002: base-100 per component, no leading zeros.
 version_code=0
 IFS=. read -r -a parts <<EOF
-$PROJECT_VERSION
+$MODULE_VERSION
 EOF
 for part in "${parts[@]}"; do
     version_code=$((version_code * 100 + part))
@@ -58,7 +58,7 @@ cp "$module_dir/common.sh" "$module_dir/customize.sh" \
 
 update_json_url="https://github.com/${repo}/releases/latest/download/shinobu-battery.json"
 
-sed -e "s/@VERSION@/v${PROJECT_VERSION}/" \
+sed -e "s/@VERSION@/v${MODULE_VERSION}/" \
     -e "s/@VERSION_CODE@/$version_code/" \
     -e "s|@UPDATE_JSON_URL@|$update_json_url|" \
     "$module_dir/module.prop" >"$work_dir/module/module.prop"
@@ -69,7 +69,7 @@ cp -r "$module_dir/webroot" "$work_dir/module/webroot"
 # module.prop updateJson= and offers an update when versionCode is newer.
 cat >"$out_dir/shinobu-battery.json" <<EOF
 {
-  "version": "v${PROJECT_VERSION}",
+  "version": "v${MODULE_VERSION}",
   "versionCode": ${version_code},
   "zipUrl": "https://github.com/${repo}/releases/latest/download/shinobu-battery.zip",
   "changelog": "https://github.com/${repo}/releases/latest/download/INFO.md"

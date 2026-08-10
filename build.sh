@@ -52,7 +52,7 @@ readonly manifest_path="$out_dir/build-manifest"
         "$(sha256sum "$input_boot_img" | cut -d' ' -f1)"
     printf 'output_boot_sha256=%s\n' \
         "$(sha256sum "$output_boot_img" | cut -d' ' -f1)"
-    printf 'module_version=%s\n' "$PROJECT_VERSION"
+    printf 'module_version=%s\n' "$MODULE_VERSION"
     printf 'module_zip_sha256=%s\n' \
         "$(sha256sum "$out_dir/shinobu-battery.zip" | cut -d' ' -f1)"
     printf '%s\n' '[patches]'
@@ -89,7 +89,7 @@ cp "$output_boot_img" "$release_img"
     printf '| boot_image | %s |\n' "$BOOT_IMAGE_URL"
     printf '| boot_image_sha256 | %s |\n' "$BOOT_IMAGE_SHA256"
     printf '| image_sha256 | %s |\n' "$(cut -d' ' -f1 "$release_img.sha")"
-    printf '| module | shinobu-battery v%s (%s) |\n' "$PROJECT_VERSION" \
+    printf '| module | shinobu-battery v%s (%s) |\n' "$MODULE_VERSION" \
         "$(cut -d' ' -f1 "$out_dir/shinobu-battery.zip.sha")"
 } > "$out_dir/INFO.md"
 
