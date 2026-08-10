@@ -89,13 +89,13 @@ nix develop --command ./sync-sources.sh --pull-latest all --reset
 
 (`lineage`, `resukisu`, `mkbootimg`, `clang` work individually.) `lineage` and `all` update the kernel, device-tree, boot URL, and boot sha256 as one compatible set only when the newest build for `LINEAGE_BRANCH` ships the current kernel branch tip. Otherwise the LineageOS pins stay unchanged with a warning; re-run after the next build. `build.sh` fetches the pinned boot image itself, so no manual download is needed. To pin manually instead, use the `boot.img` URL and sha256 published by the [LineageOS builds API](https://download.lineageos.org/api/v2/devices/bronco/builds).
 
-`.github/workflows/update.yml` checks LineageOS updates biweekly and builds compatible candidates; merging the resulting PR cuts a new release automatically (bumps `PROJECT_VERSION` by 0.0.0.1, tags `vX.Y.Z.W`, and publishes the built artifacts).
+`.github/workflows/update.yml` checks LineageOS updates biweekly and builds compatible candidates; merging the resulting PR cuts a new release automatically (bumps `PROJECT_VERSION` by 0.0.0.1, tags `vX.Y.Z.W`, and publishes the built artifacts). `MODULE_VERSION` is bumped only when `module/` changed since the last tag, so kernel-only releases don't push module updates.
 
 ## Files
 
 | Path | Purpose |
 | --- | --- |
-| `sources.env` | Pinned source revisions, project version, pinned boot image |
+| `sources.env` | Pinned source revisions, project + module versions, pinned boot image |
 | `.github/workflows/build.yml` | CI: builds pull requests, release tags, merge-triggered releases, and manual dispatches |
 | `.github/workflows/update.yml` | Biweekly build-gated LineageOS pin update PR |
 | `sync-sources.sh` | Downloads and resets pinned sources |
