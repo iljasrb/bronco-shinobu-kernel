@@ -96,7 +96,6 @@ KCONFIG_CONFIG="$out_dir/.config" "$kernel_dir/scripts/kconfig/merge_config.sh" 
     --set-str KSU_FULL_NAME_FORMAT "ThinkPhone-Shinobu-v${PROJECT_VERSION}-%TAG_NAME%-%COMMIT_SHA%@%REPO_NAME%" \
     --disable KSU_MANUAL_HOOK \
     --disable KSU_TRACEPOINT_HOOK \
-    --enable CPU_INPUT_BOOST \
     ${EXTRA_KCONFIG:-}
 
 make -C "$kernel_dir" \

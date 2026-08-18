@@ -16,7 +16,6 @@ A ReSukiSU kernel for the Motorola ThinkPhone (`bronco`) on LineageOS 23.2.
 - ReSukiSU with SUSFS
 - BBR default TCP (`CONFIG_TCP_CONG_BBR`, `CONFIG_DEFAULT_BBR`)
 - ThinLTO + CFI (shadow) build with the pinned Android clang
-- Frequency-QoS input boost, tuned per battery-module profile
 
 ## Requirements
 
@@ -45,7 +44,7 @@ Result: `out/boot-custom.img` (+ `out/shinobu-kernel-<version>.img`).
 | balanced | stock | 90% | 85% | 80% | 10 ms / 10 ms, 90 |
 | performance | stock | stock | stock | stock | 5 ms / 5 ms, 80 |
 
-Also tuned: input boost and UFS clock scaling. Applied at boot.
+Also tuned: UFS clock scaling. Applied at boot.
 
 - Profiles persist in `/data/adb/shinobu-battery/profile` (survives module updates).
 - Switch: `su -c 'sh /data/adb/modules/shinobu-battery/action.sh apply battery'` (or `status`, `preview <profile>`).

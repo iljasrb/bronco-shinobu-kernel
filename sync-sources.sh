@@ -92,7 +92,7 @@ latest_lineage_updates() {
     device_tree_revision="$(latest_revision "$DEVICE_TREE_REPOSITORY" "$DEVICE_TREE_BRANCH")"
     json="$(curl -fsSL --max-time 30 "$api_url")" || {
         printf 'could not query %s; LineageOS pins left unchanged\n' "$api_url" >&2
-        return 1
+        return 0
     }
     metadata="$(
         BUILD_JSON="$json" LINEAGE_VERSION="${LINEAGE_BRANCH#lineage-}" python3 - <<'PY'
@@ -115,27 +115,27 @@ print(boot.get("filepath", ""), boot.get("url", ""), boot.get("sha256", ""), sep
 PY
     )" || {
         printf 'could not parse the LineageOS builds API; LineageOS pins left unchanged\n' >&2
-        return 1
+        return 0
     }
     IFS=$'\t' read -r filepath boot_url expected_sha <<<"$metadata"
     [[ "$filepath" =~ ^/full/bronco/[0-9]{8}/boot\.img$ ]] &&
         [[ "$boot_url" == "https://mirrorbits.lineageos.org$filepath" ]] &&
         [[ "$expected_sha" =~ ^[0-9a-f]{64}$ ]] || {
         printf 'LineageOS API returned unexpected boot metadata; pins left unchanged\n' >&2
-        return 1
+        return 0
     }
 
     tmp="$(mktemp)" || return 1
     if ! curl -fsSL --retry 3 -o "$tmp" "$boot_url"; then
         rm -f "$tmp"
         printf 'could not download %s; LineageOS pins left unchanged\n' "$boot_url" >&2
-        return 1
+        return 0
     fi
     sha="$(sha256sum "$tmp" | cut -d' ' -f1)"
     if [[ "$sha" != "$expected_sha" ]]; then
         rm -f "$tmp"
         printf 'sha256 mismatch for %s; LineageOS pins left unchanged\n' "$boot_url" >&2
-        return 1
+        return 0
     fi
 
     release="$(
@@ -167,7 +167,7 @@ PY
     )" || {
         rm -f "$tmp"
         printf 'could not read kernel version from %s; LineageOS pins left unchanged\n' "$boot_url" >&2
-        return 1
+        return 0
     }
     rm -f "$tmp"
 
@@ -175,7 +175,7 @@ PY
     [[ "$kernel_sha" =~ ^[0-9a-f]{12}$ ]] || {
         printf 'unexpected kernel release %s in %s; LineageOS pins left unchanged\n' \
             "$release" "$boot_url" >&2
-        return 1
+        return 0
     }
     if [[ "${kernel_revision:0:12}" != "$kernel_sha" ]]; then
         printf 'newest LineageOS %s build ships kernel %s, branch tip is %s; LineageOS pins left unchanged\n' \

@@ -40,12 +40,6 @@ case "$feature" in
         echo "CONFIG_KSU_SUSFS=y in running config: $cfg"
         [[ "$cfg" == "1" ]]
         ;;
-    input-boost)
-        cfg="$(adb shell 'zcat /proc/config.gz 2>/dev/null | grep -c "^CONFIG_CPU_INPUT_BOOST=y" || true' | tr -d '\r')"
-        params="$(adb shell 'ls /sys/module/cpu_input_boost/parameters 2>/dev/null | wc -l' | tr -d '\r')"
-        echo "CONFIG_CPU_INPUT_BOOST=y in running config: $cfg; param files: $params"
-        [[ "$cfg" == "1" && "$params" == "4" ]]
-        ;;
     *)
         echo "unknown feature: $feature" >&2
         exit 2

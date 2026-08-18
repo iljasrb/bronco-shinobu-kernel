@@ -20,8 +20,7 @@ done
 for p in policy0 policy4 policy7; do
     mkdir -p "$fake_sys/devices/system/cpu/cpufreq/$p/walt"
 done
-mkdir -p "$fake_sys/class/kgsl/kgsl-3d0/devfreq" \
-    "$fake_sys/module/cpu_input_boost/parameters"
+mkdir -p "$fake_sys/class/kgsl/kgsl-3d0/devfreq"
 
 # little (A510): 300-2016 MHz; perf (A710): 633-2745; prime (X2): 787-3187
 for c in 0 1 2 3; do
@@ -50,16 +49,13 @@ done
 echo "900000000 862000000 815000000 765000000 710000000 645000000 580000000 515000000 439000000 364000000 324000000 285000000 220000000" \
     >"$fake_sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies"
 echo 765000000 >"$fake_sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
-for p in input_boost_freq_little input_boost_freq_big input_boost_freq_prime; do
-    echo 0 >"$fake_sys/module/cpu_input_boost/parameters/$p"
-done
 
 export SYS="$fake_sys" PROC="$fake_proc" STATE_DIR="$fake_state"
 # shellcheck disable=SC1091
 . "$root/common.sh"
 
 # --- assertions -------------------------------------------------------------
-apply_profile battery
+set_profile battery
 [ "$(cat "$fake_sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq")" = 1804800 ] \
     || fail "battery must not touch little (stock 1804800)"
 
@@ -85,14 +81,14 @@ pv="$(preview_profile battery)"
     || fail "battery walt hispeed_load"
 [ "$(cat "$fake_sys/class/kgsl/kgsl-3d0/devfreq/max_freq")" = 515000000 ] \
     || fail "battery gpu cap: expected 515000000 (60% of 900 MHz)"
-[ "$(cat "$fake_sys/module/cpu_input_boost/parameters/input_boost_freq_little")" = 806400 ] \
-    || fail "battery input boost little"
 
 rm -f "$fake_sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq"
-if apply_profile performance; then
+if set_profile performance; then
     fail "profile change must fail when an original cap cannot be restored"
 fi
 [ -f "$CAPS_FILE" ] || fail "failed restore must retain cap state"
+[ "$(cat "$PROFILE_FILE")" = battery ] || fail "failed apply must retain saved profile"
+[ ! -e "$PROFILE_FILE.tmp" ] || fail "failed apply must remove staged profile"
 echo 2112000 >"$fake_sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq"
 
 apply_profile performance
@@ -107,14 +103,12 @@ apply_profile performance
 apply_profile battery
 echo 0 >"$fake_sys/devices/system/cpu/cpufreq/policy0/walt/up_rate_limit_us"
 echo 0 >"$fake_sys/devices/system/cpu/cpufreq/policy4/walt/down_rate_limit_us"
-echo 0 >"$fake_sys/module/cpu_input_boost/parameters/input_boost_freq_prime"
+printf 'corrupt\n' >"$PROFILE_FILE"
 reassert_profile
 [ "$(cat "$fake_sys/devices/system/cpu/cpufreq/policy0/walt/up_rate_limit_us")" = 20000 ] \
     || fail "reassert restores up_rate_limit_us"
 [ "$(cat "$fake_sys/devices/system/cpu/cpufreq/policy4/walt/down_rate_limit_us")" = 10000 ] \
     || fail "reassert restores down_rate_limit_us"
-[ "$(cat "$fake_sys/module/cpu_input_boost/parameters/input_boost_freq_prime")" = 806400 ] \
-    || fail "reassert restores input boost prime"
 
 # Double-apply must not clobber the recorded originals: battery -> battery ->
 # performance still restores stock (the bug seen on-device).
@@ -137,6 +131,14 @@ fi
 [ "$(cat "$fake_sys/devices/system/cpu/cpufreq/policy0/walt/up_rate_limit_us")" = "$before" ] \
     || fail "persistence failure must not apply live settings"
 PROFILE_FILE="$saved_profile_file"
+
+# Percentage rounding must happen after multiplication for irregular tables.
+mkdir -p "$fake_sys/devices/system/cpu/cpu8/cpufreq"
+printf '800 850 1099\n' >"$fake_sys/devices/system/cpu/cpu8/cpufreq/scaling_available_frequencies"
+printf '1099\n' >"$fake_sys/devices/system/cpu/cpu8/cpufreq/cpuinfo_max_freq"
+[ "$(cap_freq 8 80)" = 850 ] || fail "cpu cap must preserve percentage precision"
+printf '800 850 1099\n' >"$fake_sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies"
+[ "$(gpu_cap_hz 80)" = 850 ] || fail "gpu cap must preserve percentage precision"
 
 truncate -s 1048576 "$LOG_FILE"
 log "rotation check"

@@ -56,7 +56,7 @@ cap_freq() {
     [ "$pct" -ge 100 ] && return 0
     max_khz="$(cat "$SYS/devices/system/cpu/cpu$cpu/cpufreq/cpuinfo_max_freq" \
         2>/dev/null || printf '%s\n' $freqs | sort -n | tail -1)"
-    target=$((max_khz / 100 * pct))
+    target=$((max_khz * pct / 100))
     for f in $freqs; do
         [ "$f" -le "$target" ] && [ "$f" -gt "${pick:-0}" ] && pick="$f"
     done
@@ -73,7 +73,7 @@ gpu_cap_hz() {
     [ -n "$table" ] || return 0
     max_hz="$(printf '%s\n' $table | sort -n | tail -1)"
     [ "$pct" -ge 100 ] && return 0
-    target=$((max_hz / 100 * pct))
+    target=$((max_hz * pct / 100))
     for f in $table; do
         [ "$f" -le "$target" ] && [ "$f" -gt "${pick:-0}" ] && pick="$f"
     done
@@ -93,21 +93,18 @@ apply_cpu_profile() {
             LITTLE_CAP=100; PERF_CAP=80; PRIME_CAP=70
             UP_RATE_LIMIT_US=20000; DOWN_RATE_LIMIT_US=10000
             HISPEED_LOAD=95
-            IB_LP=806400; IB_PERF=883200; IB_PRIME=806400
             GPU_CAP=60
             ;;
         balanced)
             LITTLE_CAP=100; PERF_CAP=90; PRIME_CAP=85
             UP_RATE_LIMIT_US=10000; DOWN_RATE_LIMIT_US=10000
             HISPEED_LOAD=90
-            IB_LP=998400; IB_PERF=1036800; IB_PRIME=979200
             GPU_CAP=80
             ;;
         performance)
             LITTLE_CAP=100; PERF_CAP=100; PRIME_CAP=100
             UP_RATE_LIMIT_US=5000; DOWN_RATE_LIMIT_US=5000
             HISPEED_LOAD=80
-            IB_LP=1132800; IB_PERF=1113600; IB_PRIME=1036800
             GPU_CAP=100
             ;;
         *)
@@ -180,12 +177,6 @@ apply_profile() {
             "$HISPEED_LOAD"
     done
 
-    # Built-in input-boost parameters.
-    local ib_param="$SYS/module/cpu_input_boost/parameters"
-    write_file "$ib_param/input_boost_freq_little" "$IB_LP"
-    write_file "$ib_param/input_boost_freq_big" "$IB_PERF"
-    write_file "$ib_param/input_boost_freq_prime" "$IB_PRIME"
-
     # GPU: cap from the devfreq table (Hz), never touch the floor.
     cap_gpu "$GPU_CAP"
 
@@ -197,11 +188,16 @@ apply_profile() {
 }
 
 current_profile() {
-    cat "$PROFILE_FILE" 2>/dev/null || printf 'battery\n'
+    local profile
+    profile="$(cat "$PROFILE_FILE" 2>/dev/null || true)"
+    case "$profile" in
+        battery|balanced|performance) printf '%s\n' "$profile" ;;
+        *) printf 'battery\n' ;;
+    esac
 }
 
-# reassert_profile: rewrite knobs perf-hal resets (walt rate limits,
-# hispeed_load, input boost). Called by watchdog.sh.
+# reassert_profile: rewrite knobs perf-hal resets (WALT rate limits and
+# hispeed_load). Called by watchdog.sh.
 reassert_profile() {
     local profile policy cur
     profile="$(current_profile)"
@@ -218,16 +214,6 @@ reassert_profile() {
         [ "$cur" = "$HISPEED_LOAD" ] || write_file "$base/hispeed_load" \
             "$HISPEED_LOAD"
     done
-    local ib_param="$SYS/module/cpu_input_boost/parameters"
-    cur="$(cat "$ib_param/input_boost_freq_little" 2>/dev/null || true)"
-    [ "$cur" = "$IB_LP" ] || write_file "$ib_param/input_boost_freq_little" \
-        "$IB_LP"
-    cur="$(cat "$ib_param/input_boost_freq_big" 2>/dev/null || true)"
-    [ "$cur" = "$IB_PERF" ] || write_file "$ib_param/input_boost_freq_big" \
-        "$IB_PERF"
-    cur="$(cat "$ib_param/input_boost_freq_prime" 2>/dev/null || true)"
-    [ "$cur" = "$IB_PRIME" ] || write_file "$ib_param/input_boost_freq_prime" \
-        "$IB_PRIME"
     return 0
 }
 
@@ -257,9 +243,17 @@ preview_profile() {
 }
 
 set_profile() {
-    local profile="$1"
+    local profile="$1" temporary
     apply_cpu_profile "$profile" || return 1
     mkdir -p "$STATE_DIR" || return 1
-    printf '%s\n' "$profile" 2>/dev/null >"$PROFILE_FILE" || return 1
-    apply_profile "$profile"
+    temporary="$PROFILE_FILE.tmp"
+    printf '%s\n' "$profile" 2>/dev/null >"$temporary" || return 1
+    apply_profile "$profile" || {
+        rm -f "$temporary"
+        return 1
+    }
+    mv -f "$temporary" "$PROFILE_FILE" || {
+        rm -f "$temporary"
+        return 1
+    }
 }
