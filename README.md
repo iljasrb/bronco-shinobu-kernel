@@ -57,6 +57,8 @@ Also tuned: input boost and UFS clock scaling. Applied at boot.
 
 Keep changes to `.github/workflows/module.yml` in a separate commit: GitHub's release token cannot create a tag for a commit that changes workflow files.
 
+Existing v0.1.0.5 installs use the old `releases/latest` URL; manually reinstall the first `battery-v*` release to move them to this manifest.
+
 ## Kernel patches
 
 Put patches in `patches/` as `0001-name.patch` (applied in order after ReSukiSU integration):
