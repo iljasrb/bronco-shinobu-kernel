@@ -55,6 +55,8 @@ Also tuned: input boost and UFS clock scaling. Applied at boot.
 
 `module/update.json` is the updater manifest committed on `main`. It initially pins the latest published module asset, `v0.1.0.5`. To publish a module, update it to direct `battery-v<version>` URLs, commit and push that module change, then manually dispatch `release battery module` from the same commit. The workflow packages, self-checks, tags, and publishes only the module.
 
+Keep changes to `.github/workflows/module.yml` in a separate commit: GitHub's release token cannot create a tag for a commit that changes workflow files.
+
 ## Kernel patches
 
 Put patches in `patches/` as `0001-name.patch` (applied in order after ReSukiSU integration):
