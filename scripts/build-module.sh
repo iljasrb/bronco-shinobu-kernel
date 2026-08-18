@@ -1,24 +1,34 @@
 #!/usr/bin/env bash
-# Builds the flashable KernelSU module zip + sha256.
-# Runs standalone or as part of build.sh (after the kernel build).
+# Builds the standalone flashable KernelSU module zip + sha256.
+# Runs independently of the kernel build.
 set -euo pipefail
 
 root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-source_manifest="$root_dir/sources.env"
-
-[ -f "$source_manifest" ] || {
-    printf 'source manifest is missing at %s\n' "$source_manifest" >&2
+module_dir="$root_dir/module"
+module_manifest="$module_dir/update.json"
+[[ -f "$module_manifest" ]] || {
+    printf 'module manifest is missing at %s\n' "$module_manifest" >&2
     exit 1
 }
-# shellcheck disable=SC1091
-source "$source_manifest"
+MODULE_VERSION="$(
+    python3 - "$module_manifest" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
 
-module_dir="$root_dir/module"
+version = json.loads(Path(sys.argv[1]).read_text()).get("version")
+if not isinstance(version, str) or re.fullmatch(r"v\d+(?:\.\d+){2,3}", version) is None:
+    raise SystemExit("module manifest has an invalid version")
+print(version[1:])
+PY
+)"
 out_dir="${OUT_DIR:-$root_dir/out}"
 mkdir -p "$out_dir"
 out_dir="$(realpath "$out_dir")"
 work_dir="$(mktemp -d "$out_dir/module-package.XXXXXX")"
 trap 'rm -rf "$work_dir"' EXIT
+
 
 # Release repo: CI provides GITHUB_REPOSITORY, local builds fall back to
 # the git remote.
@@ -56,7 +66,7 @@ cp "$module_dir/common.sh" "$module_dir/customize.sh" \
     "$module_dir/watchdog.sh" "$module_dir/uninstall.sh" \
     "$module_dir/action.sh" "$work_dir/module/"
 
-update_json_url="https://github.com/${repo}/releases/latest/download/shinobu-battery.json"
+update_json_url="https://raw.githubusercontent.com/${repo}/main/module/update.json"
 
 sed -e "s/@VERSION@/v${MODULE_VERSION}/" \
     -e "s/@VERSION_CODE@/$version_code/" \
@@ -65,16 +75,9 @@ sed -e "s/@VERSION@/v${MODULE_VERSION}/" \
 
 cp -r "$module_dir/webroot" "$work_dir/module/webroot"
 
-# Auto-update manifest. Served from the release; the manager reads it via
-# module.prop updateJson= and offers an update when versionCode is newer.
-cat >"$out_dir/shinobu-battery.json" <<EOF
-{
-  "version": "v${MODULE_VERSION}",
-  "versionCode": ${version_code},
-  "zipUrl": "https://github.com/${repo}/releases/latest/download/shinobu-battery.zip",
-  "changelog": "https://github.com/${repo}/releases/latest/download/INFO.md"
-}
-EOF
+# The installed module reads this committed manifest from main; every release
+# points it at an immutable module asset tag.
+cp "$module_manifest" "$out_dir/shinobu-battery.json"
 
 chmod 755 "$work_dir/module/service.sh" "$work_dir/module/action.sh" \
     "$work_dir/module/customize.sh" "$work_dir/module/boot-completed.sh" \

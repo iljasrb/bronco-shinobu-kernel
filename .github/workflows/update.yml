@@ -59,9 +59,6 @@ jobs:
         if: steps.update.outputs.changed == 'true'
         run: ./build.sh
 
-      - name: Verify tuner engine self-check
-        if: steps.update.outputs.changed == 'true'
-        run: bash module/test/test_tune.sh
 
       - name: Upload candidate
         if: steps.update.outputs.changed == 'true'
@@ -72,10 +69,6 @@ jobs:
             sources.env
             out/shinobu-kernel-*.img
             out/shinobu-kernel-*.img.sha
-            out/shinobu-battery.zip
-            out/shinobu-battery.zip.sha
-            out/shinobu-battery.json
-            out/INFO.md
             out/build-manifest
 
   pull-request:

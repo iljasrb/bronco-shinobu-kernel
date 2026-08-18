@@ -33,11 +33,11 @@ nix run .#bronco-build -- ./build.sh              # build + package
 
 `build.sh` downloads and verifies the pinned boot image itself; the same image in `inputs/boot.img` doubles as your rollback image.
 
-Result: `out/boot-custom.img` (+ `out/shinobu-kernel-<version>.img`), plus the flashable `out/shinobu-battery.zip` module.
+Result: `out/boot-custom.img` (+ `out/shinobu-kernel-<version>.img`).
 
 ## Battery tuner module
 
-`module/` is a KernelSU module built alongside the kernel (`scripts/build-module.sh`, run by `build.sh`). It applies battery/performance profiles at boot. Caps are computed from the device's own frequency tables:
+`module/` is a standalone KernelSU module. Package it with `scripts/build-module.sh`; its release never builds a kernel.
 
 | Profile | little | big | prime | GPU | walt governor |
 | --- | --- | --- | --- | --- | --- |
@@ -50,6 +50,10 @@ Also tuned: input boost and UFS clock scaling. Applied at boot.
 - Profiles persist in `/data/adb/shinobu-battery/profile` (survives module updates).
 - Switch: `su -c 'sh /data/adb/modules/shinobu-battery/action.sh apply battery'` (or `status`, `preview <profile>`).
 - WebUI: module page in the KernelSU/ReSukiSU manager — pick a profile to preview its values next to the current ones, then apply.
+
+### Module releases
+
+`module/update.json` is the updater manifest committed on `main`. It initially pins the latest published module asset, `v0.1.0.5`. To publish a module, update it to direct `battery-v<version>` URLs, commit and push that module change, then manually dispatch `release battery module` from the same commit. The workflow packages, self-checks, tags, and publishes only the module.
 
 ## Kernel patches
 
@@ -89,20 +93,21 @@ nix develop --command ./sync-sources.sh --pull-latest all --reset
 
 (`lineage`, `resukisu`, `mkbootimg`, `clang` work individually.) `lineage` and `all` update the kernel, device-tree, boot URL, and boot sha256 as one compatible set only when the newest build for `LINEAGE_BRANCH` ships the current kernel branch tip. Otherwise the LineageOS pins stay unchanged with a warning; re-run after the next build. `build.sh` fetches the pinned boot image itself, so no manual download is needed. To pin manually instead, use the `boot.img` URL and sha256 published by the [LineageOS builds API](https://download.lineageos.org/api/v2/devices/bronco/builds).
 
-`.github/workflows/update.yml` checks LineageOS updates biweekly and builds compatible candidates; merging the resulting PR cuts a new release automatically (bumps `PROJECT_VERSION` by 0.0.0.1, tags `vX.Y.Z.W`, and publishes the built artifacts). `MODULE_VERSION` is bumped only when `module/` changed since the last tag, so kernel-only releases don't push module updates.
+`.github/workflows/update.yml` checks LineageOS updates biweekly and builds compatible candidates; merging the resulting PR cuts a kernel release automatically. An explicitly advanced `PROJECT_VERSION` is used as-is; otherwise CI increments its final component, tags `vX.Y.Z[.W]`, and publishes the kernel artifacts. Module releases are manual through `.github/workflows/module.yml`.
 
 ## Files
 
 | Path | Purpose |
 | --- | --- |
-| `sources.env` | Pinned source revisions, project + module versions, pinned boot image |
-| `.github/workflows/build.yml` | CI: builds pull requests, release tags, merge-triggered releases, and manual dispatches |
+| `sources.env` | Pinned source revisions and project version |
+| `.github/workflows/build.yml` | CI: builds pull requests, release tags, merge-triggered kernel releases, and manual dispatches |
+| `.github/workflows/module.yml` | Manual standalone battery-module release |
 | `.github/workflows/update.yml` | Biweekly build-gated LineageOS pin update PR |
 | `sync-sources.sh` | Downloads and resets pinned sources |
 | `scripts/fetch-boot-image.sh` | Downloads and verifies the pinned boot image |
-| `build.sh` | Build + package entry point |
+| `build.sh` | Kernel build + boot-image package entry point |
 | `patches/` | Kernel patches, applied in order |
-| `module/` | Battery tuner module source (KernelSU module + WebUI + tests) |
-| `scripts/build-module.sh` | Packages the flashable module zip |
+| `module/` | Battery tuner module source |
+| `module/update.json` | Committed module updater manifest |
+| `scripts/build-module.sh` | Packages the standalone flashable module zip |
 | `out/boot-custom.img` | Flashable image |
-| `out/shinobu-battery.zip` | Flashable battery tuner module |

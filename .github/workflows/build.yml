@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths: [sources.env]
-    tags: ['*']
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -17,10 +17,8 @@ concurrency:
 
 jobs:
   tag:
-    # Runs on merge to main (branch push only, not tag pushes): bumps the
-    # patch octet of PROJECT_VERSION, commits it, and pushes the vX.Y.Z.W tag.
-    # The tag push and the bump-commit push use GITHUB_TOKEN, which never
-    # re-triggers this workflow, so exactly one build+release happens per merge.
+    # Runs on source-manifest pushes to main. An explicitly advanced
+    # PROJECT_VERSION becomes the release; otherwise bump its final component.
     if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     permissions:
@@ -33,22 +31,19 @@ jobs:
       - name: Bump version and push tag
         run: |
           source ./sources.env
-          version="$(awk -F. -v OFS=. '{$(NF)++; print}' <<< "$PROJECT_VERSION")"
-          # Bump the module version only when module/ changed since the last
-          # release tag; unchanged module keeps its version so ReSukiSU managers
-          # don't offer a pointless update.
-          module_version="$MODULE_VERSION"
-          prev_tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
-          if [ -z "$prev_tag" ] || ! git diff --quiet "$prev_tag" -- module/; then
-            module_version="$(awk -F. -v OFS=. '{$(NF)++; print}' <<< "$MODULE_VERSION")"
+          previous_tag="$(git describe --tags --match 'v*' --abbrev=0 2>/dev/null || true)"
+          version="$PROJECT_VERSION"
+          if [ -n "$previous_tag" ] && [ "$version" = "${previous_tag#v}" ]; then
+            version="$(awk -F. -v OFS=. '{$(NF)++; print}' <<< "$PROJECT_VERSION")"
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          sed -i "s/^PROJECT_VERSION=.*/PROJECT_VERSION=\"$version\"/" sources.env
-          sed -i "s/^MODULE_VERSION=.*/MODULE_VERSION=\"$module_version\"/" sources.env
-          git add sources.env
-          git commit -m "release: v$version"
-          git push origin "HEAD:${{ github.ref }}"
+          if [ "$version" != "$PROJECT_VERSION" ]; then
+            sed -i "s/^PROJECT_VERSION=.*/PROJECT_VERSION=\"$version\"/" sources.env
+            git add sources.env
+            git commit -m "release: v$version"
+            git push origin "HEAD:${{ github.ref }}"
+          fi
           git tag "v$version"
           git push origin "v$version"
 
@@ -91,9 +86,6 @@ jobs:
       - name: Build kernel and package boot image
         run: ./build.sh
 
-      - name: Verify tuner engine self-check
-        run: bash module/test/test_tune.sh
-
       - name: Upload release artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -101,9 +93,6 @@ jobs:
           path: |
             out/shinobu-kernel-*.img
             out/shinobu-kernel-*.img.sha
-            out/shinobu-battery.zip
-            out/shinobu-battery.zip.sha
-            out/shinobu-battery.json
             out/INFO.md
             out/build-manifest
 
@@ -114,7 +103,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.6.2
         with:
           name: shinobu-build
           path: out
@@ -127,8 +116,5 @@ jobs:
           files: |
             out/shinobu-kernel-*.img
             out/shinobu-kernel-*.img.sha
-            out/shinobu-battery.zip
-            out/shinobu-battery.zip.sha
-            out/shinobu-battery.json
             out/INFO.md
             out/build-manifest
