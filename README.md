@@ -52,9 +52,7 @@ Also tuned: UFS clock scaling. Applied at boot.
 
 ### Module releases
 
-`module/update.json` is the updater manifest committed on `main`. It initially pins the latest published module asset, `v0.1.0.5`. To publish a module, update it to direct `battery-v<version>` URLs, commit and push that module change, then manually dispatch `release battery module` from the same commit. The workflow packages, self-checks, tags, and publishes only the module.
-
-Keep changes to `.github/workflows/module.yml` in a separate commit: GitHub's release token cannot create a tag for a commit that changes workflow files.
+`module/update.json` is the updater manifest committed on `main`. It initially pins the latest published module asset, `v0.1.0.5`. To publish a module, update it to direct `battery-v<version>` URLs, commit and push that module change, then create and push the matching `battery-v<version>` tag. The tag workflow packages, self-checks, and publishes only the module.
 
 Existing v0.1.0.5 installs use the old `releases/latest` URL; manually reinstall the first `battery-v*` release to move them to this manifest.
 

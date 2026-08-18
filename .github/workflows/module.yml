@@ -1,8 +1,8 @@
 name: release battery module
 
 on:
-  workflow_dispatch:
-
+  push:
+    tags: ['battery-v*']
 permissions:
   contents: write
 
@@ -59,13 +59,14 @@ jobs:
               output.write(f"version={plain_version}\n")
           PY
 
-      - name: Require a new module tag
+      - name: Verify module tag
         env:
           VERSION: ${{ steps.release.outputs.version }}
         run: |
           tag="battery-v$VERSION"
-          if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
-            printf 'module tag %s already exists\n' "$tag" >&2
+          if [[ "$GITHUB_REF_NAME" != "$tag" ]]; then
+            printf 'tag %s does not match module version %s\n' \
+              "$GITHUB_REF_NAME" "$VERSION" >&2
             exit 1
           fi
 
