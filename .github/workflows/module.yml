@@ -59,6 +59,16 @@ jobs:
               output.write(f"version={plain_version}\n")
           PY
 
+      - name: Require a new module tag
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          tag="battery-v$VERSION"
+          if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+            printf 'module tag %s already exists\n' "$tag" >&2
+            exit 1
+          fi
+
       - name: Build module
         run: bash scripts/build-module.sh
 
