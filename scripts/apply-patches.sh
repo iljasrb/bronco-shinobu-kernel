@@ -18,18 +18,15 @@ readonly kernel_dir="$root_dir/$KERNEL_DIRECTORY"
     exit 1
 }
 
-shopt -s nullglob
-patches=("$patch_dir"/*.patch)
+grep -qx "# SUSFS_REVISION=$SUSFS_REVISION" "$patch_dir/0001-susfs.patch" || {
+    printf '%s\n' 'SUSFS patch does not match its pin; run scripts/refresh-susfs.sh' >&2
+    exit 1
+}
 
-if ((${#patches[@]} == 0)); then
-    printf 'No kernel patches found in %s\n' "$patch_dir"
-    exit 0
-fi
-
-for patch in "${patches[@]}"; do
+for patch in "$patch_dir"/*.patch; do
     patch_name="${patch#"$patch_dir"/}"
 
-    if git -C "$kernel_dir" apply --reverse --check "$patch"; then
+    if git -C "$kernel_dir" apply --reverse --check "$patch" 2>/dev/null; then
         printf 'Kernel patch already applied: %s\n' "$patch_name"
         continue
     fi
@@ -40,5 +37,5 @@ for patch in "${patches[@]}"; do
     fi
 
     printf 'Applying kernel patch: %s\n' "$patch_name"
-    git -C "$kernel_dir" apply --3way "$patch"
+    git -C "$kernel_dir" apply "$patch"
 done

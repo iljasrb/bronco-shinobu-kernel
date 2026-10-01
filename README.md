@@ -1,69 +1,60 @@
 # ThinkPhone Shinobu Kernel
 
-This project builds a ReSukiSU kernel for the Motorola ThinkPhone (`bronco`) on LineageOS 23.2.
+Kernel for Motorola ThinkPhone (`bronco`) running LineageOS 23.2.
+Includes ReSukiSU, SUSFS v2.3.0 and [NoMount](https://github.com/maxsteeel/nomount).
 
-> [!IMPORTANT]
-> ## Maintenance mode
-> This project is in maintenance mode.
-> The project receives only fixes for the build procedure.
-> The project does not add new features.
+## Download
 
-> [!WARNING]
-> Before you flash kernel, prepare a rollback image.
-> You must know how to recover from a boot loop.
+Open [Actions](https://github.com/iljasrb/bronco-shinobu-kernel/actions/workflows/build.yml),
+select the latest successful `dev` build and download `shinobu-build`.
+Extract the ZIP. The custom image is in `out/`; the original image is
+`inputs/boot.img`.
 
-## Requirements
-
-- A ThinkPhone with an unlocked bootloader.
-- `adb`, `fastboot`, and Nix.
-
-## Build
-
-1. Download the pinned sources:
-
-   ```sh
-   nix develop --command ./sync-sources.sh --reset
-   ```
-
-2. Build the boot image:
-
-   ```sh
-   nix run .#bronco-build -- ./build.sh
-   ```
-
-The build saves the rollback image as `inputs/boot.img`.
-The flash image is `out/boot-custom.img`.
-
-## Battery tuner module
-
-The battery tuner module has three profiles: `battery`, `balanced`, and `performance`.
-
-Set a profile:
-
-```sh
-su -c 'sh /data/adb/modules/shinobu-battery/action.sh apply battery'
-```
-
-Use `status` to show the selected profile. Use `preview <profile>` before you set a profile.
+Match the LineageOS build date in `out/INFO.md` to the build on your phone.
+Do not flash an image for a different build. CI success does not confirm that
+the kernel boots on a ThinkPhone.
 
 ## Flash
 
-Run these commands in order. Replace `<slot>` with `a` or `b` from `fastboot getvar current-slot`.
+Requires an unlocked bootloader, `adb` and `fastboot`. Keep `inputs/boot.img`
+for rollback. Run from the extracted directory:
 
 ```sh
+(cd out && sha256sum -c shinobu-kernel-*.img.sha)
 adb reboot bootloader
 fastboot getvar current-slot
-fastboot flash boot_<slot> out/boot-custom.img
+```
+
+Replace `<slot>` with the reported slot (`a` or `b`):
+
+```sh
+fastboot flash boot_<slot> out/shinobu-kernel-*.img
 fastboot reboot
 ```
 
-The image changes only the boot partition. AVB stays enabled.
+Do not modify `vbmeta`.
 
-### Roll back
+## Rollback
 
-If boot fails, hold Volume Down and Power to enter bootloader mode.
+Hold Volume Down + Power to enter the bootloader, then restore the same slot:
 
 ```sh
 fastboot flash boot_<slot> inputs/boot.img
 fastboot reboot
 ```
+
+## Root and NoMount
+
+Install a compatible [ReSukiSU manager](https://github.com/ReSukiSU/ReSukiSU/releases).
+Any SUSFS userspace tools must support v2.3.0.
+
+For NoMount, install its [metamodule](https://github.com/maxsteeel/nomount/releases)
+in ReSukiSU and reboot. Use only one mounting metamodule.
+
+To check root, authorize ADB in the manager and run:
+
+```sh
+adb shell 'su -c id'
+```
+
+The output must contain `uid=0(root)` and `u:r:ksu:s0`.

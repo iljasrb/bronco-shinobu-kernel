@@ -39,7 +39,7 @@ trap cleanup EXIT
     exit 1
 }
 
-python "$boot_tool_dir/unpack_bootimg.py" \
+python3 "$boot_tool_dir/unpack_bootimg.py" \
     --boot_img "$input_boot_img" \
     --out "$work_dir/unpacked" \
     --format=mkbootimg \
@@ -48,10 +48,13 @@ python "$boot_tool_dir/unpack_bootimg.py" \
 input_kernel_release="$(
     python3 - "$work_dir/unpacked/kernel" <<'PY'
 from pathlib import Path
+import gzip
 import re
 import sys
 
 kernel = Path(sys.argv[1]).read_bytes()
+if kernel.startswith(b"\x1f\x8b"):
+    kernel = gzip.decompress(kernel)
 match = re.search(rb"Linux version ([0-9][^ ]*) \(", kernel)
 if match is None:
     raise SystemExit("could not extract the kernel release from the input boot image")
@@ -79,7 +82,7 @@ while IFS= read -r -d '' arg; do
     fi
 done < "$work_dir/mkbootimg.args"
 
-python "$boot_tool_dir/mkbootimg.py" \
+python3 "$boot_tool_dir/mkbootimg.py" \
     "${mkbootimg_args[@]}" \
     --kernel "$kernel_image" \
     --output "$work_dir/boot.img"
@@ -92,10 +95,12 @@ readonly output_size="$(stat --format=%s "$work_dir/boot.img")"
     exit 1
 }
 
-mkdir -p "$(dirname -- "$output_boot_img")"
-cp "$work_dir/boot.img" "$output_boot_img"
-
-python "$boot_tool_dir/unpack_bootimg.py" \
-    --boot_img "$output_boot_img" \
+python3 "$boot_tool_dir/unpack_bootimg.py" \
+    --boot_img "$work_dir/boot.img" \
     --out "$work_dir/verified" \
     --format=info
+cmp "$kernel_image" "$work_dir/verified/kernel"
+cmp "$work_dir/unpacked/ramdisk" "$work_dir/verified/ramdisk"
+
+mkdir -p "$(dirname -- "$output_boot_img")"
+cp "$work_dir/boot.img" "$output_boot_img"

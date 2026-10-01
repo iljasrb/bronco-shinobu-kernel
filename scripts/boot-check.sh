@@ -26,9 +26,9 @@ case "$feature" in
         adb shell cat /proc/version
         ;;
     root)
-        ctx="$(adb shell id | tr -d '\r')"
+        ctx="$(adb shell 'su -c id' | tr -d '\r')"
         echo "$ctx"
-        [[ "$ctx" == *"u:r:ksu:s0"* ]]
+        [[ "$ctx" == *"uid=0("* && "$ctx" == *"u:r:ksu:s0"* ]]
         ;;
     tcp-cc)
         cc="$(adb shell "sysctl -n net.ipv4.tcp_congestion_control" | tr -d '\r')"
@@ -39,6 +39,11 @@ case "$feature" in
         cfg="$(adb shell 'zcat /proc/config.gz 2>/dev/null | grep -c "^CONFIG_KSU_SUSFS=y" || true' | tr -d '\r')"
         echo "CONFIG_KSU_SUSFS=y in running config: $cfg"
         [[ "$cfg" == "1" ]]
+        ;;
+    nomount)
+        version="$(adb shell "su -c '/data/adb/modules/nomount/bin/nm version'" | tr -d '\r')"
+        echo "NoMount engine version: $version"
+        [[ "$version" =~ ^[0-9]+$ ]]
         ;;
     *)
         echo "unknown feature: $feature" >&2

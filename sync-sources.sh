@@ -11,8 +11,8 @@ usage() {
     cat <<'EOF'
 Usage:
   ./sync-sources.sh --reset
-  ./sync-sources.sh --pull-latest {all|lineage|resukisu|mkbootimg|clang} --reset
-  ./sync-sources.sh --pull-latest {all|lineage|resukisu|mkbootimg|clang} --pins-only
+  ./sync-sources.sh --pull-latest {all|lineage|resukisu|susfs|nomount|mkbootimg|clang} --reset
+  ./sync-sources.sh --pull-latest {all|lineage|resukisu|susfs|nomount|mkbootimg|clang} --pins-only
 
 Synchronize source trees to the exact revisions in sources.env.
 --reset discards local changes and untracked files inside those source trees.
@@ -68,14 +68,18 @@ source "$source_manifest"
 latest_revision() {
     local repository="$1"
     local branch="$2"
-    local revision=""
+    local revision="" refs
 
+    refs="$(git ls-remote --exit-code "$repository" "refs/heads/$branch" \
+        "refs/tags/$branch" "refs/tags/$branch^{}")" || return 1
     while IFS=$'\t' read -r sha ref; do
         if [[ "$ref" == "refs/heads/$branch" || "$ref" == "refs/tags/$branch^{}" ]]; then
             revision="$sha"
             break
+        elif [[ "$ref" == "refs/tags/$branch" ]]; then
+            revision="$sha"
         fi
-    done < <(git ls-remote "$repository" "refs/heads/$branch" "refs/tags/$branch^{}")
+    done <<< "$refs"
     [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || {
         printf 'could not resolve branch %s from %s\n' "$branch" "$repository" >&2
         exit 1
@@ -211,6 +215,8 @@ patterns = {
     "KERNEL_REVISION": r"[0-9a-f]{40}",
     "DEVICE_TREE_REVISION": r"[0-9a-f]{40}",
     "RESUKISU_REVISION": r"[0-9a-f]{40}",
+    "SUSFS_REVISION": r"[0-9a-f]{40}",
+    "NOMOUNT_REVISION": r"[0-9a-f]{40}",
     "MKBOOTIMG_REVISION": r"[0-9a-f]{40}",
     "ANDROID_CLANG_REVISION": r"[0-9a-f]{40}",
     "BOOT_IMAGE_URL": r"https://mirrorbits\.lineageos\.org/full/bronco/[0-9]{8}/boot\.img",
@@ -248,6 +254,8 @@ pull_latest() {
             lineage_updates="$(latest_lineage_updates)"
             [[ -z "$lineage_updates" ]] || updates+="$lineage_updates"$'\n'
             updates+="RESUKISU_REVISION=$(latest_revision "$RESUKISU_REPOSITORY" "$RESUKISU_BRANCH")"$'\n'
+            updates+="SUSFS_REVISION=$(latest_revision "$SUSFS_REPOSITORY" "$SUSFS_BRANCH")"$'\n'
+            updates+="NOMOUNT_REVISION=$(latest_revision "$NOMOUNT_REPOSITORY" "$NOMOUNT_BRANCH")"$'\n'
             updates+="MKBOOTIMG_REVISION=$(latest_revision "$MKBOOTIMG_REPOSITORY" "$MKBOOTIMG_BRANCH")"$'\n'
             updates+="ANDROID_CLANG_REVISION=$(latest_revision "$ANDROID_CLANG_REPOSITORY" "$ANDROID_CLANG_REF")"$'\n'
             ;;
@@ -256,6 +264,12 @@ pull_latest() {
             ;;
         resukisu)
             updates="RESUKISU_REVISION=$(latest_revision "$RESUKISU_REPOSITORY" "$RESUKISU_BRANCH")"
+            ;;
+        susfs)
+            updates="SUSFS_REVISION=$(latest_revision "$SUSFS_REPOSITORY" "$SUSFS_BRANCH")"
+            ;;
+        nomount)
+            updates="NOMOUNT_REVISION=$(latest_revision "$NOMOUNT_REPOSITORY" "$NOMOUNT_BRANCH")"
             ;;
         mkbootimg)
             updates="MKBOOTIMG_REVISION=$(latest_revision "$MKBOOTIMG_REPOSITORY" "$MKBOOTIMG_BRANCH")"
@@ -289,7 +303,14 @@ prepare_repository() {
     local directory="$1"
     local repository="$2"
     local revision="$3"
+    local sparse_directory="${4:-}"
     local path="$root_dir/$directory"
+    local filter=()
+
+    [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || {
+        printf 'invalid pinned revision for %s\n' "$directory" >&2
+        exit 1
+    }
 
     if [[ ! -d "$path/.git" ]]; then
         mkdir -p "$(dirname -- "$path")"
@@ -302,42 +323,19 @@ prepare_repository() {
         exit 1
     }
 
+    [[ -z "$sparse_directory" ]] || filter=(--filter=blob:none)
+    # Fetch before discarding local edits, so network errors leave them intact.
+    git -C "$path" fetch "${filter[@]}" --depth 1 origin "$revision"
+    [[ "$(git -C "$path" rev-parse FETCH_HEAD)" == "$revision" ]] || {
+        printf 'fetched revision does not match pin for %s\n' "$directory" >&2
+        exit 1
+    }
     if [[ -n "$(git -C "$path" status --porcelain)" ]]; then
         git -C "$path" reset --hard
         git -C "$path" clean -fd
     fi
-
-    git -C "$path" fetch --depth 1 origin "$revision"
+    [[ -z "$sparse_directory" ]] || git -C "$path" sparse-checkout set "$sparse_directory"
     git -C "$path" checkout --detach FETCH_HEAD
-}
-
-prepare_android_clang() {
-    local path="$root_dir/tools/android-clang"
-
-    [[ -n "$ANDROID_CLANG_REVISION" ]] || {
-        printf 'ANDROID_CLANG_REVISION is missing from %s; run sync-sources.sh --pull-latest clang --reset\n' \
-            "$source_manifest" >&2
-        exit 1
-    }
-
-    if [[ ! -d "$path/.git" ]]; then
-        mkdir -p "$(dirname -- "$path")"
-        git clone --depth 1 --branch "$ANDROID_CLANG_REF" --filter=blob:none --sparse \
-            "$ANDROID_CLANG_REPOSITORY" "$path"
-    else
-        [[ "$(git -C "$path" remote get-url origin)" == "$ANDROID_CLANG_REPOSITORY" ]] || {
-            printf 'unexpected origin for %s\n' "$path" >&2
-            exit 1
-        }
-        if [[ -n "$(git -C "$path" status --porcelain)" ]]; then
-            git -C "$path" reset --hard
-            git -C "$path" clean -fd
-        fi
-    fi
-
-    git -C "$path" fetch --depth 1 origin "$ANDROID_CLANG_REVISION"
-    git -C "$path" checkout --detach FETCH_HEAD
-    git -C "$path" sparse-checkout set "$ANDROID_CLANG_DIRECTORY"
 }
 
 if [[ -n "$pull_target" ]]; then
@@ -348,5 +346,7 @@ fi
 prepare_repository "$KERNEL_DIRECTORY" "$KERNEL_REPOSITORY" "$KERNEL_REVISION"
 prepare_repository "$DEVICE_TREE_DIRECTORY" "$DEVICE_TREE_REPOSITORY" "$DEVICE_TREE_REVISION"
 prepare_repository "$RESUKISU_DIRECTORY" "$RESUKISU_REPOSITORY" "$RESUKISU_REVISION"
+prepare_repository "$NOMOUNT_DIRECTORY" "$NOMOUNT_REPOSITORY" "$NOMOUNT_REVISION"
 prepare_repository "$MKBOOTIMG_DIRECTORY" "$MKBOOTIMG_REPOSITORY" "$MKBOOTIMG_REVISION"
-prepare_android_clang
+prepare_repository "tools/android-clang" "$ANDROID_CLANG_REPOSITORY" \
+    "$ANDROID_CLANG_REVISION" "$ANDROID_CLANG_DIRECTORY"

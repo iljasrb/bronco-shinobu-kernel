@@ -54,6 +54,7 @@ rm -f "$out_dir/.config"
     printf 'temporary device-tree link path already exists at %s\n' "$resolved_devicetree_link" >&2
     exit 1
 }
+trap 'rm -f "$bronco_kbuild" "$resolved_devicetree_link"' EXIT
 ln -s "$devicetree_dir" "$resolved_devicetree_link"
 cat > "$bronco_kbuild" <<'EOF'
 dtb-y += cape-moto-bronco-base.dtb cape-v2-moto-bronco-base.dtb
@@ -69,7 +70,6 @@ cape-bronco-dvt2-overlay.dtbo-base := cape-v2-moto-bronco-base.dtb
 
 always-y := $(dtb-y)
 EOF
-trap 'rm -f "$bronco_kbuild" "$resolved_devicetree_link"' EXIT
 
 KCONFIG_CONFIG="$out_dir/.config" "$kernel_dir/scripts/kconfig/merge_config.sh" -m -r -y \
     "$config_dir/gki_defconfig" \
@@ -93,32 +93,24 @@ KCONFIG_CONFIG="$out_dir/.config" "$kernel_dir/scripts/kconfig/merge_config.sh" 
     --disable DEFAULT_CUBIC \
     --enable KSU \
     --enable KSU_SUSFS \
+    --enable KEYS \
+    --enable NOMOUNT \
     --set-str KSU_FULL_NAME_FORMAT "ThinkPhone-Shinobu-v${PROJECT_VERSION}-%TAG_NAME%-%COMMIT_SHA%@%REPO_NAME%" \
     --disable KSU_MANUAL_HOOK \
     --disable KSU_TRACEPOINT_HOOK \
     ${EXTRA_KCONFIG:-}
 
-make -C "$kernel_dir" \
-    O="$out_dir" \
-    ARCH=arm64 \
-    LLVM=1 \
-    LLVM_IAS=1 \
-    CC=clang \
-    HOSTCC=cc \
-    HOSTCXX=c++ \
-    CROSS_COMPILE=aarch64-linux-gnu- \
-    olddefconfig
+make_args=(-C "$kernel_dir" O="$out_dir" ARCH=arm64 LLVM=1 LLVM_IAS=1
+    CC=clang HOSTCC=cc HOSTCXX=c++ CROSS_COMPILE=aarch64-linux-gnu-)
+make "${make_args[@]}" olddefconfig
+
+for option in KSU KSU_SUSFS KEYS NOMOUNT; do
+    grep -qx "CONFIG_${option}=y" "$out_dir/.config" || {
+        printf 'required CONFIG_%s=y missing after olddefconfig\n' "$option" >&2
+        exit 1
+    }
+done
 
 rm -f "$out_dir/kernel/configs.o"
 
-make -C "$kernel_dir" \
-    O="$out_dir" \
-    ARCH=arm64 \
-    LLVM=1 \
-    LLVM_IAS=1 \
-    CC=clang \
-    HOSTCC=cc \
-    HOSTCXX=c++ \
-    CROSS_COMPILE=aarch64-linux-gnu- \
-    -j"$jobs" \
-    Image dtbs modules
+make "${make_args[@]}" -j"$jobs" Image dtbs modules

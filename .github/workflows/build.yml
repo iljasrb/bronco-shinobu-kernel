@@ -2,8 +2,7 @@ name: build
 
 on:
   push:
-    branches: [main]
-    paths: [sources.env]
+    branches: [main, dev]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -12,45 +11,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: release
-  cancel-in-progress: false
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
-  tag:
-    # Runs on source-manifest pushes to main. An explicitly advanced
-    # PROJECT_VERSION becomes the release; otherwise bump its final component.
-    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          fetch-depth: 0
-
-      - name: Bump version and push tag
-        run: |
-          source ./sources.env
-          previous_tag="$(git describe --tags --match 'v*' --abbrev=0 2>/dev/null || true)"
-          version="$PROJECT_VERSION"
-          if [ -n "$previous_tag" ] && [ "$version" = "${previous_tag#v}" ]; then
-            version="$(awk -F. -v OFS=. '{$(NF)++; print}' <<< "$PROJECT_VERSION")"
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          if [ "$version" != "$PROJECT_VERSION" ]; then
-            sed -i "s/^PROJECT_VERSION=.*/PROJECT_VERSION=\"$version\"/" sources.env
-            git add sources.env
-            git commit -m "release: v$version"
-            git push origin "HEAD:${{ github.ref }}"
-          fi
-          git tag "v$version"
-          git push origin "v$version"
-
   build:
-    needs: tag
-    if: always() && needs.tag.result != 'failure' && !cancelled()
     runs-on: ubuntu-24.04
+    timeout-minutes: 120
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -67,11 +34,19 @@ jobs:
       - name: Verify release version
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          if [[ "${GITHUB_REF_NAME#v}" != "${{ steps.version.outputs.version }}" ]]; then
+          source ./sources.env
+          [[ "$GITHUB_REF_NAME" == "v$PROJECT_VERSION" ]] || {
             printf 'tag %s does not match project version %s\n' \
-              "$GITHUB_REF_NAME" "${{ steps.version.outputs.version }}" >&2
+              "$GITHUB_REF_NAME" "$PROJECT_VERSION" >&2
             exit 1
-          fi
+          }
+
+      - name: Check project
+        run: |
+          for test in scripts/test_*.py; do python3 "$test"; done
+
+      - name: Verify pinned SUSFS patch
+        run: ./scripts/refresh-susfs.sh --check
 
       - name: Install build dependencies
         run: |
@@ -86,7 +61,7 @@ jobs:
       - name: Build kernel and package boot image
         run: ./build.sh
 
-      - name: Upload release artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: shinobu-build
@@ -95,10 +70,14 @@ jobs:
             out/shinobu-kernel-*.img.sha
             out/INFO.md
             out/build-manifest
+            out/.config
+            inputs/boot.img
+          include-hidden-files: true
+          if-no-files-found: error
 
   publish:
     needs: build
-    if: always() && needs.build.result == 'success' && (startsWith(github.ref, 'refs/tags/') || github.event_name == 'push')
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -106,13 +85,13 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.6.2
         with:
           name: shinobu-build
-          path: out
 
       - name: Publish release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: v${{ needs.build.outputs.version }}
           body_path: out/INFO.md
+          fail_on_unmatched_files: true
           files: |
             out/shinobu-kernel-*.img
             out/shinobu-kernel-*.img.sha

@@ -9,6 +9,7 @@
 /kernel/
 /kernel-devicetrees/
 /KernelSU/
+/NoMount/
 /tools/
 /.ccache/
 

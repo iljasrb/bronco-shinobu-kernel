@@ -24,6 +24,7 @@ printf 'Output image: %s\n' "${OUTPUT_BOOT_IMG:-$root_dir/out/boot-custom.img}"
 
 "$script_dir/integrate-resukisu.sh"
 "$script_dir/apply-patches.sh"
+"$script_dir/integrate-nomount.sh"
 
 "$script_dir/fetch-boot-image.sh"
 "$script_dir/build-kernel.sh"
@@ -36,12 +37,16 @@ readonly manifest_path="$out_dir/build-manifest"
 {
     printf 'project_version=%s\n' "$PROJECT_VERSION"
     printf 'project_revision=%s\n' "$(git -C "$root_dir" rev-parse HEAD)"
+    printf 'project_dirty=%s\n' "$(test -z "$(git -C "$root_dir" status --porcelain)" && echo false || echo true)"
     printf 'built_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     printf 'kernel_revision=%s\n' "$(git -C "$root_dir/$KERNEL_DIRECTORY" rev-parse HEAD)"
     printf 'devicetree_revision=%s\n' \
         "$(git -C "$root_dir/$DEVICE_TREE_DIRECTORY" rev-parse HEAD)"
     printf 'resukisu_revision=%s\n' \
         "$(git -C "$root_dir/$RESUKISU_DIRECTORY" rev-parse HEAD)"
+    printf 'susfs_revision=%s\n' "$SUSFS_REVISION"
+    printf 'nomount_revision=%s\n' \
+        "$(git -C "$root_dir/$NOMOUNT_DIRECTORY" rev-parse HEAD)"
     printf 'mkbootimg_revision=%s\n' \
         "$(git -C "$root_dir/$MKBOOTIMG_DIRECTORY" rev-parse HEAD)"
     printf 'clang_ref=%s\n' "$ANDROID_CLANG_REF"
@@ -51,6 +56,7 @@ readonly manifest_path="$out_dir/build-manifest"
         "$(sha256sum "$input_boot_img" | cut -d' ' -f1)"
     printf 'output_boot_sha256=%s\n' \
         "$(sha256sum "$output_boot_img" | cut -d' ' -f1)"
+    printf 'config_sha256=%s\n' "$(sha256sum "$out_dir/.config" | cut -d' ' -f1)"
     printf '%s\n' '[patches]'
     (cd "$root_dir/patches" && sha256sum -- *.patch) 2>/dev/null || true
 } > "$manifest_path"
@@ -80,6 +86,8 @@ cp "$output_boot_img" "$release_img"
     printf '| resukisu | %s |\n' "$resukisu_describe"
     printf '| resukisu_revision | %s |\n' "$RESUKISU_REVISION"
     printf '| susfs | %s |\n' "$susfs_version"
+    printf '| susfs_revision | %s |\n' "$SUSFS_REVISION"
+    printf '| nomount_revision | %s |\n' "$NOMOUNT_REVISION"
     printf '| mkbootimg_revision | %s |\n' "$MKBOOTIMG_REVISION"
     printf '| clang | %s (%s) |\n' "$ANDROID_CLANG_REF" "$ANDROID_CLANG_REVISION"
     printf '| boot_image | %s |\n' "$BOOT_IMAGE_URL"
