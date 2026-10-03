@@ -5,34 +5,25 @@ Includes ReSukiSU, SUSFS v2.3.0 and [NoMount](https://github.com/maxsteeel/nomou
 
 ## Download
 
-Open [Actions](https://github.com/iljasrb/bronco-shinobu-kernel/actions/workflows/build.yml),
-select the latest successful `dev` build and download `shinobu-build`.
-Extract the ZIP. The custom image is in `out/`; the original image is
-`inputs/boot.img`.
+Open [Releases](https://github.com/iljasrb/bronco-shinobu-kernel/releases),
+download latest build.
 
-Match the LineageOS build date in `out/INFO.md` to the build on your phone.
-Do not flash an image for a different build. CI success does not confirm that
-the kernel boots on a ThinkPhone.
+Match the LineageOS build date in `INFO.md` to the build on your phone.
 
 ## Flash
 
-Requires an unlocked bootloader, `adb` and `fastboot`. Keep `inputs/boot.img`
-for rollback. Run from the extracted directory:
+Requires an unlocked bootloader, `adb` and `fastboot`.
+Run:
 
 ```sh
-(cd out && sha256sum -c shinobu-kernel-*.img.sha)
+(sha256sum -c shinobu-kernel-*.img.sha)
 adb reboot bootloader
-fastboot getvar current-slot
 ```
 
-Replace `<slot>` with the reported slot (`a` or `b`):
-
 ```sh
-fastboot flash boot_<slot> out/shinobu-kernel-*.img
+fastboot flash boot shinobu-kernel-*.img
 fastboot reboot
 ```
-
-Do not modify `vbmeta`.
 
 ## Rollback
 
