@@ -12,27 +12,27 @@ readonly source_manifest="$root_dir/sources.env"
 source "$source_manifest"
 
 readonly kernel_dir="$root_dir/$KERNEL_DIRECTORY"
-readonly resukisu_dir="$root_dir/$RESUKISU_DIRECTORY"
+readonly bakasu_dir="$root_dir/$BAKASU_DIRECTORY"
 readonly driver_dir="$kernel_dir/drivers"
 readonly driver_link="$driver_dir/kernelsu"
-readonly expected_target="../../$RESUKISU_DIRECTORY/kernel"
+readonly expected_target="../../$BAKASU_DIRECTORY/kernel"
 
 [[ -f "$driver_dir/Makefile" && -f "$driver_dir/Kconfig" ]] || {
     printf 'kernel drivers directory is missing at %s\n' "$driver_dir" >&2
     exit 1
 }
-[[ -f "$resukisu_dir/kernel/Kconfig" ]] || {
-    printf 'ReSukiSU kernel source is missing at %s\n' "$resukisu_dir/kernel" >&2
+[[ -f "$bakasu_dir/kernel/Kconfig" ]] || {
+    printf 'BakaSU kernel source is missing at %s\n' "$bakasu_dir/kernel" >&2
     exit 1
 }
 
 if [[ -L "$driver_link" ]]; then
     [[ "$(readlink "$driver_link")" == "$expected_target" ]] || {
-        printf 'unexpected ReSukiSU driver link at %s\n' "$driver_link" >&2
+        printf 'unexpected BakaSU driver link at %s\n' "$driver_link" >&2
         exit 1
     }
 elif [[ -e "$driver_link" ]]; then
-    printf 'ReSukiSU driver path is not a symbolic link: %s\n' "$driver_link" >&2
+    printf 'BakaSU driver path is not a symbolic link: %s\n' "$driver_link" >&2
     exit 1
 else
     ln -s "$expected_target" "$driver_link"
@@ -60,4 +60,4 @@ if kconfig_entry not in kconfig_text:
     kconfig.write_text(kconfig_text[:index] + "\n" + kconfig_entry + kconfig_text[index:])
 PY
 
-printf 'ReSukiSU %s is integrated into %s\n' "$RESUKISU_REVISION" "$KERNEL_DIRECTORY"
+printf 'BakaSU %s is integrated into %s\n' "$BAKASU_REVISION" "$KERNEL_DIRECTORY"

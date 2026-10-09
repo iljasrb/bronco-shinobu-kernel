@@ -11,8 +11,8 @@ usage() {
     cat <<'EOF'
 Usage:
   ./sync-sources.sh --reset
-  ./sync-sources.sh --pull-latest {all|lineage|resukisu|susfs|nomount|mkbootimg|clang} --reset
-  ./sync-sources.sh --pull-latest {all|lineage|resukisu|susfs|nomount|mkbootimg|clang} --pins-only
+  ./sync-sources.sh --pull-latest {all|lineage|bakasu|susfs|nomount|mkbootimg|clang} --reset
+  ./sync-sources.sh --pull-latest {all|lineage|bakasu|susfs|nomount|mkbootimg|clang} --pins-only
 
 Synchronize source trees to the exact revisions in sources.env.
 --reset discards local changes and untracked files inside those source trees.
@@ -214,7 +214,7 @@ if len(updates) != len(lines):
 patterns = {
     "KERNEL_REVISION": r"[0-9a-f]{40}",
     "DEVICE_TREE_REVISION": r"[0-9a-f]{40}",
-    "RESUKISU_REVISION": r"[0-9a-f]{40}",
+    "BAKASU_REVISION": r"[0-9a-f]{40}",
     "SUSFS_REVISION": r"[0-9a-f]{40}",
     "NOMOUNT_REVISION": r"[0-9a-f]{40}",
     "MKBOOTIMG_REVISION": r"[0-9a-f]{40}",
@@ -253,7 +253,7 @@ pull_latest() {
         all)
             lineage_updates="$(latest_lineage_updates)"
             [[ -z "$lineage_updates" ]] || updates+="$lineage_updates"$'\n'
-            updates+="RESUKISU_REVISION=$(latest_revision "$RESUKISU_REPOSITORY" "$RESUKISU_BRANCH")"$'\n'
+            updates+="BAKASU_REVISION=$(latest_revision "$BAKASU_REPOSITORY" "$BAKASU_BRANCH")"$'\n'
             updates+="SUSFS_REVISION=$(latest_revision "$SUSFS_REPOSITORY" "$SUSFS_BRANCH")"$'\n'
             updates+="NOMOUNT_REVISION=$(latest_revision "$NOMOUNT_REPOSITORY" "$NOMOUNT_BRANCH")"$'\n'
             updates+="MKBOOTIMG_REVISION=$(latest_revision "$MKBOOTIMG_REPOSITORY" "$MKBOOTIMG_BRANCH")"$'\n'
@@ -262,8 +262,8 @@ pull_latest() {
         lineage)
             updates="$(latest_lineage_updates)"
             ;;
-        resukisu)
-            updates="RESUKISU_REVISION=$(latest_revision "$RESUKISU_REPOSITORY" "$RESUKISU_BRANCH")"
+        bakasu)
+            updates="BAKASU_REVISION=$(latest_revision "$BAKASU_REPOSITORY" "$BAKASU_BRANCH")"
             ;;
         susfs)
             updates="SUSFS_REVISION=$(latest_revision "$SUSFS_REPOSITORY" "$SUSFS_BRANCH")"
@@ -345,7 +345,7 @@ fi
 
 prepare_repository "$KERNEL_DIRECTORY" "$KERNEL_REPOSITORY" "$KERNEL_REVISION"
 prepare_repository "$DEVICE_TREE_DIRECTORY" "$DEVICE_TREE_REPOSITORY" "$DEVICE_TREE_REVISION"
-prepare_repository "$RESUKISU_DIRECTORY" "$RESUKISU_REPOSITORY" "$RESUKISU_REVISION"
+prepare_repository "$BAKASU_DIRECTORY" "$BAKASU_REPOSITORY" "$BAKASU_REVISION"
 prepare_repository "$NOMOUNT_DIRECTORY" "$NOMOUNT_REPOSITORY" "$NOMOUNT_REVISION"
 prepare_repository "$MKBOOTIMG_DIRECTORY" "$MKBOOTIMG_REPOSITORY" "$MKBOOTIMG_REVISION"
 prepare_repository "tools/android-clang" "$ANDROID_CLANG_REPOSITORY" \
