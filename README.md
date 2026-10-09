@@ -1,7 +1,7 @@
 # ThinkPhone Shinobu Kernel
 
 Kernel for Motorola ThinkPhone (`bronco`) running LineageOS 23.2.
-Includes ReSukiSU, SUSFS v2.3.0 and [NoMount](https://github.com/maxsteeel/nomount).
+Includes BakaSU, SUSFS v2.3.0 and [NoMount](https://github.com/maxsteeel/nomount).
 
 ## Download
 
@@ -36,11 +36,11 @@ fastboot reboot
 
 ## Root and NoMount
 
-Install a compatible [ReSukiSU manager](https://github.com/ReSukiSU/ReSukiSU/releases).
+Install a compatible [BakaSU manager](https://github.com/Baka-SU/BakaSU/releases).
 Any SUSFS userspace tools must support v2.3.0.
 
 For NoMount, install its [metamodule](https://github.com/maxsteeel/nomount/releases)
-in ReSukiSU and reboot. Use only one mounting metamodule.
+in BakaSU and reboot. Use only one mounting metamodule.
 
 To check root, authorize ADB in the manager and run:
 

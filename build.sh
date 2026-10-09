@@ -22,7 +22,7 @@ printf 'Kernel revision: %s\n' "$KERNEL_REVISION"
 printf 'Boot image: %s\n' "${INPUT_BOOT_IMG:-$root_dir/inputs/boot.img}"
 printf 'Output image: %s\n' "${OUTPUT_BOOT_IMG:-$root_dir/out/boot-custom.img}"
 
-"$script_dir/integrate-resukisu.sh"
+"$script_dir/integrate-bakasu.sh"
 "$script_dir/apply-patches.sh"
 "$script_dir/integrate-nomount.sh"
 
@@ -42,8 +42,8 @@ readonly manifest_path="$out_dir/build-manifest"
     printf 'kernel_revision=%s\n' "$(git -C "$root_dir/$KERNEL_DIRECTORY" rev-parse HEAD)"
     printf 'devicetree_revision=%s\n' \
         "$(git -C "$root_dir/$DEVICE_TREE_DIRECTORY" rev-parse HEAD)"
-    printf 'resukisu_revision=%s\n' \
-        "$(git -C "$root_dir/$RESUKISU_DIRECTORY" rev-parse HEAD)"
+    printf 'bakasu_revision=%s\n' \
+        "$(git -C "$root_dir/$BAKASU_DIRECTORY" rev-parse HEAD)"
     printf 'susfs_revision=%s\n' "$SUSFS_REVISION"
     printf 'nomount_revision=%s\n' \
         "$(git -C "$root_dir/$NOMOUNT_DIRECTORY" rev-parse HEAD)"
@@ -63,7 +63,7 @@ readonly manifest_path="$out_dir/build-manifest"
 printf 'Recorded build manifest at %s\n' "$manifest_path"
 
 readonly kernel_release="$(<"$out_dir/include/config/kernel.release")"
-readonly resukisu_describe="$(git -C "$root_dir/$RESUKISU_DIRECTORY" describe --tags 2>/dev/null || true)"
+readonly bakasu_describe="$(git -C "$root_dir/$BAKASU_DIRECTORY" describe --tags 2>/dev/null || true)"
 readonly susfs_version="$(sed -n 's/^#define SUSFS_VERSION "\(.*\)"/\1/p' "$root_dir/$KERNEL_DIRECTORY/include/linux/susfs.h" 2>/dev/null | head -1)"
 readonly nomount_version="$(sed -n 's/^version=//p' "$root_dir/$NOMOUNT_DIRECTORY/module/module.prop" 2>/dev/null | head -1)"
 readonly release_name="shinobu-kernel-${PROJECT_VERSION}"
@@ -82,12 +82,12 @@ cp "$output_boot_img" "$release_img"
     printf '|---|---|\n'
     printf '| LineageOS build | %s |\n' "$lineageos_build"
     printf '| Kernel | %s |\n' "$kernel_release"
-    printf '| Root | ReSukiSU %s |\n' "$resukisu_describe"
+    printf '| Root | BakaSU %s |\n' "$bakasu_describe"
     printf '| SUSFS | %s |\n' "$susfs_version"
     printf '| NoMount | %s |\n' "$nomount_version"
     printf '| Built | %s |\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     printf '| SHA-256 | `%s` |\n' "$(cut -d' ' -f1 "$release_img.sha")"
-    printf '\nInstall a compatible ReSukiSU manager for root. For NoMount, flash its\n'
+    printf '\nInstall a compatible BakaSU manager for root. For NoMount, flash its\n'
     printf 'metamodule too. Always flash the LineageOS build listed above. Full\n'
     printf 'instructions: README.\n'
 } > "$out_dir/INFO.md"
