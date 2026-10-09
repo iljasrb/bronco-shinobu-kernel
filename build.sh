@@ -65,6 +65,7 @@ printf 'Recorded build manifest at %s\n' "$manifest_path"
 readonly kernel_release="$(<"$out_dir/include/config/kernel.release")"
 readonly resukisu_describe="$(git -C "$root_dir/$RESUKISU_DIRECTORY" describe --tags 2>/dev/null || true)"
 readonly susfs_version="$(sed -n 's/^#define SUSFS_VERSION "\(.*\)"/\1/p' "$root_dir/$KERNEL_DIRECTORY/include/linux/susfs.h" 2>/dev/null | head -1)"
+readonly nomount_version="$(sed -n 's/^version=//p' "$root_dir/$NOMOUNT_DIRECTORY/module/module.prop" 2>/dev/null | head -1)"
 readonly release_name="shinobu-kernel-${PROJECT_VERSION}"
 readonly release_img="$out_dir/$release_name.img"
 readonly boot_image_directory="${BOOT_IMAGE_URL%/*}"
@@ -74,25 +75,21 @@ cp "$output_boot_img" "$release_img"
 (cd "$out_dir" && sha256sum "$release_name.img" > "$release_name.img.sha")
 
 {
-    printf '# %s\n\n' "$release_name"
-    printf '| field | value |\n'
+    printf '# ThinkPhone Shinobu Kernel v%s\n\n' "$PROJECT_VERSION"
+    printf 'Custom kernel for the Motorola ThinkPhone (bronco) on LineageOS %s.\n\n' \
+        "${LINEAGE_BRANCH#lineage-}"
+    printf '| | |\n'
     printf '|---|---|\n'
-    printf '| version | %s |\n' "$PROJECT_VERSION"
-    printf '| built_at | %s |\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    printf '| lineageos_build | %s |\n' "$lineageos_build"
-    printf '| kernel | %s |\n' "$kernel_release"
-    printf '| kernel_revision | %s |\n' "$KERNEL_REVISION"
-    printf '| devicetree_revision | %s |\n' "$DEVICE_TREE_REVISION"
-    printf '| resukisu | %s |\n' "$resukisu_describe"
-    printf '| resukisu_revision | %s |\n' "$RESUKISU_REVISION"
-    printf '| susfs | %s |\n' "$susfs_version"
-    printf '| susfs_revision | %s |\n' "$SUSFS_REVISION"
-    printf '| nomount_revision | %s |\n' "$NOMOUNT_REVISION"
-    printf '| mkbootimg_revision | %s |\n' "$MKBOOTIMG_REVISION"
-    printf '| clang | %s (%s) |\n' "$ANDROID_CLANG_REF" "$ANDROID_CLANG_REVISION"
-    printf '| boot_image | %s |\n' "$BOOT_IMAGE_URL"
-    printf '| boot_image_sha256 | %s |\n' "$BOOT_IMAGE_SHA256"
-    printf '| image_sha256 | %s |\n' "$(cut -d' ' -f1 "$release_img.sha")"
+    printf '| LineageOS build | %s |\n' "$lineageos_build"
+    printf '| Kernel | %s |\n' "$kernel_release"
+    printf '| Root | ReSukiSU %s |\n' "$resukisu_describe"
+    printf '| SUSFS | %s |\n' "$susfs_version"
+    printf '| NoMount | %s |\n' "$nomount_version"
+    printf '| Built | %s |\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf '| SHA-256 | `%s` |\n' "$(cut -d' ' -f1 "$release_img.sha")"
+    printf '\nInstall a compatible ReSukiSU manager for root. For NoMount, flash its\n'
+    printf 'metamodule too. Always flash the LineageOS build listed above. Full\n'
+    printf 'instructions: README.\n'
 } > "$out_dir/INFO.md"
 
 printf 'Created %s (%s), %s.sha, INFO.md\n' "$release_img" "$output_boot_img" "$release_name"
