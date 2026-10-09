@@ -108,16 +108,32 @@ cp "$TEST_UPSTREAM/${url##*/kernel_patches/}" "$output"
     workflow = (repo / ".github/workflows/build.yml").read_text()
     assert "\n  tag:" not in workflow and "git push" not in workflow
     assert "branches: [main, dev]" in workflow and "    paths:" not in workflow
+    assert "    tags:" not in workflow
     publish = workflow.split("\n  publish:\n", 1)[1]
-    assert "    if: startsWith(github.ref, 'refs/tags/')\n" in publish
+    assert "    if: needs.build.outputs.release == 'true'\n" in publish
     assert "          path: out\n" not in publish
     assert "            inputs/boot.img\n" in workflow
     assert "            out/.config\n" in workflow and "include-hidden-files: true" in workflow
-    verify = workflow.split("      - name: Verify release version\n", 1)[1].split("\n      - name:", 1)[0]
-    verify = textwrap.dedent(verify.split("run: |\n", 1)[1])
-    for tag, ok in (("v0.2.2", True), ("v9.9.9", False)):
-        (root / "sources.env").write_text('PROJECT_VERSION="0.2.2"\n')
-        run("bash", "-c", verify, cwd=root, env=dict(os.environ, GITHUB_REF_NAME=tag), ok=ok)
+    step = workflow.split("      - name: Load project version\n", 1)[1].split("\n      - name:", 1)[0]
+    step = textwrap.dedent(step.split("run: |\n", 1)[1])
+    run("git", "init", "-q", str(root))
+    run("git", "-C", str(root), "config", "user.name", "Test")
+    run("git", "-C", str(root), "config", "user.email", "test@example.invalid")
+    (root / "sources.env").write_text('PROJECT_VERSION="0.2.2"\n')
+    run("git", "-C", str(root), "add", "sources.env")
+    run("git", "-C", str(root), "commit", "-qm", "version")
+    output = root / "github_output"
+    env = dict(os.environ, GITHUB_REF="refs/heads/main", GITHUB_OUTPUT=str(output))
+    output.write_text("")
+    run("bash", "-c", step, cwd=root, env=env)
+    assert "version=0.2.2" in output.read_text() and "release=true" in output.read_text()
+    run("git", "-c", "tag.gpgsign=false", "-C", str(root), "tag", "v0.2.2")
+    output.write_text("")
+    run("bash", "-c", step, cwd=root, env=env)
+    assert "release=false" in output.read_text()
+    output.write_text("")
+    run("bash", "-c", step, cwd=root, env=dict(env, GITHUB_REF="refs/heads/dev"))
+    assert "release=false" in output.read_text()
 
     build = (repo / "scripts/build-kernel.sh").read_text()
     guard = 'for option in ' + build.split('for option in ', 1)[1].split('\nrm -f ', 1)[0]
@@ -136,4 +152,4 @@ cp "$TEST_UPSTREAM/${url##*/kernel_patches/}" "$output"
     image.write_bytes(b"invalid kernel")
     run("python3", "-c", extract, str(image), ok=False)
 
-print("PASS: SUSFS reproduction, pin guard, sparse checkout, dev CI, release tags and gzip kernels")
+print("PASS: SUSFS reproduction, pin guard, sparse checkout, dev CI, release bumps and gzip kernels")
