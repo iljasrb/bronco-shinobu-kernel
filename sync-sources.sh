@@ -299,6 +299,15 @@ pull_latest() {
         "$source_manifest" "$root_dir/sources.env.bak"
 }
 
+normalize_remote() {  # https://host/a/b.git and git@host:a/b.git -> host/a/b
+    local url=$1
+    url=${url%.git}
+    url=${url#*://}
+    url=${url#git@}
+    url=${url/:/\/}
+    printf '%s\n' "$url"
+}
+
 prepare_repository() {
     local directory="$1"
     local repository="$2"
@@ -318,10 +327,13 @@ prepare_repository() {
         git -C "$path" remote add origin "$repository"
     fi
 
-    [[ "$(git -C "$path" remote get-url origin)" == "$repository" ]] || {
+    # Compare normalized urls: a global `url.<ssh>.insteadOf https://github.com/`
+    # rewrite makes get-url return the ssh form even when the pin is https.
+    if [[ "$(normalize_remote "$(git -C "$path" remote get-url origin)")" != \
+          "$(normalize_remote "$repository")" ]]; then
         printf 'unexpected origin for %s\n' "$path" >&2
         exit 1
-    }
+    fi
 
     [[ -z "$sparse_directory" ]] || filter=(--filter=blob:none)
     # Fetch before discarding local edits, so network errors leave them intact.

@@ -1,6 +1,6 @@
 # ThinkPhone Shinobu Kernel
 
-Kernel for Motorola ThinkPhone (`bronco`) running LineageOS 23.2.
+Kernel for Motorola ThinkPhone (`bronco`) running LineageOS 24.0 (Android 17).
 Includes BakaSU, SUSFS v2.3.0 and [NoMount](https://github.com/maxsteeel/nomount).
 
 ## Download
@@ -8,7 +8,8 @@ Includes BakaSU, SUSFS v2.3.0 and [NoMount](https://github.com/maxsteeel/nomount
 Open [Releases](https://github.com/iljasrb/bronco-shinobu-kernel/releases),
 download latest build.
 
-Match the LineageOS build date in `INFO.md` to the build on your phone.
+Match the LineageOS build date in `INFO.md` to the build on your phone; the kernel
+branch tracks the same LineageOS branch (`lineage-24.0`).
 
 ## Flash
 
