@@ -51,11 +51,54 @@ jobs:
             -y --no-install-recommends bc bison cpio flex libelf-dev libssl-dev make \
             perl pkg-config python3 python-is-python3 zlib1g-dev dwarves
 
+      - name: Set up JDK
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Sync pinned sources
         run: ./sync-sources.sh --reset
 
       - name: Build kernel and package boot image
         run: ./build.sh
+
+      - name: Build BakaSU manager for the pinned commit
+        env:
+          KEYSTORE_B64: ${{ secrets.BAKASU_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.BAKASU_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.BAKASU_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.BAKASU_KEY_PASSWORD }}
+        run: |
+          # The manager must come from the same BakaSU revision as the driver, or the
+          # kernel reports a newer version code than the app and root looks broken.
+          # Release-signed when the BAKASU_KEYSTORE_* secrets exist (stable signature,
+          # in-place upgrades), otherwise debug-signed so the asset is still installable.
+          source ./sources.env
+          desc=$(git -C "$BAKASU_DIRECTORY" describe --tags --always)
+          cd "$BAKASU_DIRECTORY/manager"
+          chmod +x gradlew
+          task=assembleDebug
+          sign=()
+          if [[ -n "$KEYSTORE_B64" ]]; then
+            printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/manager.keystore"
+            task=assembleRelease
+            sign=(
+              "-PKEYSTORE_FILE=$RUNNER_TEMP/manager.keystore"
+              "-PKEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              "-PKEY_ALIAS=$KEY_ALIAS"
+              "-PKEY_PASSWORD=$KEY_PASSWORD"
+            )
+          fi
+          ./gradlew --no-daemon "$task" "${sign[@]}"
+          mkdir -p ../../out
+          for apk in app/build/outputs/apk/*/*.apk; do
+            case $apk in
+              *universal*) cp "$apk" "../../out/bakasu-manager-${desc}-universal.apk" ;;
+              *arm64*)     cp "$apk" "../../out/bakasu-manager-${desc}-arm64-v8a.apk" ;;
+            esac
+          done
+          ls -l ../../out/bakasu-manager-*.apk
 
       - name: Upload artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -67,6 +110,7 @@ jobs:
             out/INFO.md
             out/build-manifest
             out/.config
+            out/bakasu-manager-*.apk
             inputs/boot.img
           include-hidden-files: true
           if-no-files-found: error
@@ -91,5 +135,6 @@ jobs:
           files: |
             out/shinobu-kernel-*.img
             out/shinobu-kernel-*.img.sha
+            out/bakasu-manager-*.apk
             out/INFO.md
             out/build-manifest

@@ -6,7 +6,8 @@ Includes BakaSU, SUSFS v2.3.0 and [NoMount](https://github.com/maxsteeel/nomount
 ## Download
 
 Open [Releases](https://github.com/iljasrb/bronco-shinobu-kernel/releases),
-download latest build.
+download latest build. Each release also carries `bakasu-manager-…apk` — the manager
+built from the same BakaSU revision as the kernel's driver, so the version codes match.
 
 Match the LineageOS build date in `INFO.md` to the build on your phone; the kernel
 branch tracks the same LineageOS branch (`lineage-24.0`).
