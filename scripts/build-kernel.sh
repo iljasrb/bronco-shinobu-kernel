@@ -77,6 +77,13 @@ KCONFIG_CONFIG="$out_dir/.config" "$kernel_dir/scripts/kconfig/merge_config.sh" 
     "$config_dir/vendor/ext_config/moto-waipio.config" \
     "$config_dir/vendor/ext_config/moto-waipio-bronco.config"
 
+# The GKI defconfig here is a debug one: UBSAN bounds checks every array access in
+# mm/sched/drivers and traps on UB. Instrumentation only - the rest of the debug
+# cruft has to stay, because the ROM's prebuilt vendor_dlkm modules reference the
+# symbols it exports (kasan_flag_enabled, __list_add_valid): dropping KASAN or
+# DEBUG_LIST makes all 400+ of them fail to load. Anything struct- or HZ-shaped is
+# out for the same reason. WQ_POWER_EFFICIENT_DEFAULT is the one addition: unbound
+# workqueues then run on an idle CPU instead of a busy one.
 "$kernel_dir/scripts/config" --file "$out_dir/.config" \
     --enable LTO \
     --enable LTO_CLANG \
@@ -98,15 +105,24 @@ KCONFIG_CONFIG="$out_dir/.config" "$kernel_dir/scripts/kconfig/merge_config.sh" 
     --set-str KSU_FULL_NAME_FORMAT "ThinkPhone-Shinobu-v${PROJECT_VERSION}-%TAG_NAME%-%COMMIT_SHA%@%REPO_NAME%" \
     --disable KSU_MANUAL_HOOK \
     --disable KSU_TRACEPOINT_HOOK \
+    --disable UBSAN \
+    --disable UBSAN_TRAP \
+    --enable WQ_POWER_EFFICIENT_DEFAULT \
     ${EXTRA_KCONFIG:-}
 
 make_args=(-C "$kernel_dir" O="$out_dir" ARCH=arm64 LLVM=1 LLVM_IAS=1
     CC=clang HOSTCC=cc HOSTCXX=c++ CROSS_COMPILE=aarch64-linux-gnu-)
 make "${make_args[@]}" olddefconfig
 
-for option in KSU KSU_SUSFS KEYS NOMOUNT; do
+for option in KSU KSU_SUSFS KEYS NOMOUNT WQ_POWER_EFFICIENT_DEFAULT; do
     grep -qx "CONFIG_${option}=y" "$out_dir/.config" || {
         printf 'required CONFIG_%s=y missing after olddefconfig\n' "$option" >&2
+        exit 1
+    }
+done
+for option in UBSAN UBSAN_TRAP; do
+    ! grep -qx "CONFIG_${option}=y" "$out_dir/.config" || {
+        printf 'CONFIG_%s=y must stay disabled on a release kernel\n' "$option" >&2
         exit 1
     }
 done

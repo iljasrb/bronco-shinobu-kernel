@@ -69,36 +69,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.BAKASU_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.BAKASU_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.BAKASU_KEY_PASSWORD }}
-        run: |
-          # The manager must come from the same BakaSU revision as the driver, or the
-          # kernel reports a newer version code than the app and root looks broken.
-          # Release-signed when the BAKASU_KEYSTORE_* secrets exist (stable signature,
-          # in-place upgrades), otherwise debug-signed so the asset is still installable.
-          source ./sources.env
-          desc=$(git -C "$BAKASU_DIRECTORY" describe --tags --always)
-          cd "$BAKASU_DIRECTORY/manager"
-          chmod +x gradlew
-          task=assembleDebug
-          sign=()
-          if [[ -n "$KEYSTORE_B64" ]]; then
-            printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/manager.keystore"
-            task=assembleRelease
-            sign=(
-              "-PKEYSTORE_FILE=$RUNNER_TEMP/manager.keystore"
-              "-PKEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
-              "-PKEY_ALIAS=$KEY_ALIAS"
-              "-PKEY_PASSWORD=$KEY_PASSWORD"
-            )
-          fi
-          ./gradlew --no-daemon "$task" "${sign[@]}"
-          mkdir -p ../../out
-          for apk in app/build/outputs/apk/*/*.apk; do
-            case $apk in
-              *universal*) cp "$apk" "../../out/bakasu-manager-${desc}-universal.apk" ;;
-              *arm64*)     cp "$apk" "../../out/bakasu-manager-${desc}-arm64-v8a.apk" ;;
-            esac
-          done
-          ls -l ../../out/bakasu-manager-*.apk
+        run: ./scripts/build-manager.sh
 
       - name: Upload artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

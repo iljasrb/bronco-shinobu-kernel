@@ -63,7 +63,10 @@ readonly manifest_path="$out_dir/build-manifest"
 printf 'Recorded build manifest at %s\n' "$manifest_path"
 
 readonly kernel_release="$(<"$out_dir/include/config/kernel.release")"
-readonly bakasu_describe="$(git -C "$root_dir/$BAKASU_DIRECTORY" describe --tags 2>/dev/null || true)"
+readonly bakasu_describe="$(git -C "$root_dir/$BAKASU_DIRECTORY" describe --tags --always 2>/dev/null || true)"
+# BakaSU derives the manager version the same way; a manager older than the driver
+# cannot install its su binary and root looks broken, so the expected code is published.
+readonly bakasu_version_code="$((30000 + $(git -C "$root_dir/$BAKASU_DIRECTORY" rev-list --count HEAD) + 700))"
 readonly susfs_version="$(sed -n 's/^#define SUSFS_VERSION "\(.*\)"/\1/p' "$root_dir/$KERNEL_DIRECTORY/include/linux/susfs.h" 2>/dev/null | head -1)"
 readonly nomount_version="$(sed -n 's/^version=//p' "$root_dir/$NOMOUNT_DIRECTORY/module/module.prop" 2>/dev/null | head -1)"
 readonly release_name="shinobu-kernel-${PROJECT_VERSION}"
@@ -83,13 +86,15 @@ cp "$output_boot_img" "$release_img"
     printf '| LineageOS build | %s |\n' "$lineageos_build"
     printf '| Kernel | %s |\n' "$kernel_release"
     printf '| Root | BakaSU %s |\n' "$bakasu_describe"
+    printf '| Root manager | `bakasu-manager-%s-arm64-v8a.apk`, version code %s |\n' \
+        "$bakasu_describe" "$bakasu_version_code"
     printf '| SUSFS | %s |\n' "$susfs_version"
     printf '| NoMount | %s |\n' "$nomount_version"
     printf '| Built | %s |\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     printf '| SHA-256 | `%s` |\n' "$(cut -d' ' -f1 "$release_img.sha")"
-    printf '\nInstall a compatible BakaSU manager for root. For NoMount, flash its\n'
-    printf 'metamodule too. Always flash the LineageOS build listed above. Full\n'
-    printf 'instructions: README.\n'
+    printf '\nInstall the manager APK from this release; it comes from the same BakaSU\n'
+    printf 'revision as the driver. For NoMount, flash its metamodule too. Always flash the\n'
+    printf 'LineageOS build listed above. Full instructions: README.\n'
 } > "$out_dir/INFO.md"
 
 printf 'Created %s (%s), %s.sha, INFO.md\n' "$release_img" "$output_boot_img" "$release_name"
