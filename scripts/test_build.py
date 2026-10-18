@@ -21,7 +21,7 @@ with tempfile.TemporaryDirectory(prefix="shinobu-build-") as temporary:
     (root / "scripts").mkdir()
     (root / "patches").mkdir()
     shutil.copy2(repo / "sources.env", root)
-    for name in ("refresh-susfs.sh", "apply-patches.sh", "build-manager.sh"):
+    for name in ("refresh-susfs.sh", "apply-patches.sh"):
         shutil.copy2(repo / "scripts" / name, root / "scripts")
     upstream = root / "upstream"
     hooks = upstream / "50_add_susfs_in_gki-android13-5.10.patch"
@@ -142,33 +142,6 @@ cp "$TEST_UPSTREAM/${url##*/kernel_patches/}" "$output"
     for missing in (None, *config):
         (root / ".config").write_text("\n".join(line for line in config if line != missing) + "\n")
         run("bash", "-c", 'set -eu; out_dir="$1"; ' + guard, "test", str(root), ok=missing is None)
-
-    # Manager build ships the arm64-v8a split and fails when it is missing.
-    shutil.copy2(repo / "sources.env", root)
-    bakasu = root / "KernelSU"
-    (bakasu / "manager").mkdir(parents=True)
-    run("git", "init", "-q", str(bakasu))
-    run("git", "-C", str(bakasu), "config", "user.name", "Test")
-    run("git", "-C", str(bakasu), "config", "user.email", "test@example.invalid")
-    (bakasu / "kernel").mkdir()
-    (bakasu / "kernel/Kconfig").write_text("")
-    run("git", "-C", str(bakasu), "add", ".")
-    run("git", "-C", str(bakasu), "-c", "tag.gpgsign=false", "commit", "-qm", "pin")
-    run("git", "-C", str(bakasu), "-c", "tag.gpgsign=false", "tag", "v1.0")
-    gradlew = bakasu / "manager/gradlew"
-    universal = ("#!/bin/sh\nmkdir -p app/build/outputs/apk/release\n"
-                 "touch app/build/outputs/apk/release/BakaSU_1_0_universal-release.apk\n")
-    gradlew.write_text(universal + "touch app/build/outputs/apk/release/BakaSU_1_0_1-arm64-v8a-release.apk\n")
-    gradlew.chmod(0o755)
-    manager_out = root / "manager-out"
-    manager_env = dict(os.environ, KEYSTORE_B64="Zm9v", OUT_DIR=str(manager_out))
-    run("bash", str(root / "scripts/build-manager.sh"), env=manager_env)
-    assert [file.name for file in manager_out.iterdir()] == ["bakasu-manager-v1.0-arm64-v8a.apk"]
-    shutil.rmtree(manager_out)
-    shutil.rmtree(bakasu / "manager/app")
-    gradlew.write_text(universal)
-    run("bash", str(root / "scripts/build-manager.sh"), env=manager_env, ok=False)
-    assert not manager_out.exists()
 
     packaging = (repo / "scripts/make-boot-image.sh").read_text()
     extract = packaging.split("input_kernel_release=", 1)[1].split("<<'PY'\n", 1)[1].split("\nPY\n", 1)[0]

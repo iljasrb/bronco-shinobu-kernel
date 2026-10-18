@@ -51,25 +51,11 @@ jobs:
             -y --no-install-recommends bc bison cpio flex libelf-dev libssl-dev make \
             perl pkg-config python3 python-is-python3 zlib1g-dev dwarves
 
-      - name: Set up JDK
-        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
       - name: Sync pinned sources
         run: ./sync-sources.sh --reset
 
       - name: Build kernel and package boot image
         run: ./build.sh
-
-      - name: Build BakaSU manager for the pinned commit
-        env:
-          KEYSTORE_B64: ${{ secrets.BAKASU_KEYSTORE_B64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.BAKASU_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.BAKASU_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.BAKASU_KEY_PASSWORD }}
-        run: ./scripts/build-manager.sh
 
       - name: Upload artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -81,7 +67,6 @@ jobs:
             out/INFO.md
             out/build-manifest
             out/.config
-            out/bakasu-manager-*.apk
             inputs/boot.img
           include-hidden-files: true
           if-no-files-found: error
@@ -106,6 +91,5 @@ jobs:
           files: |
             out/shinobu-kernel-*.img
             out/shinobu-kernel-*.img.sha
-            out/bakasu-manager-*.apk
             out/INFO.md
             out/build-manifest

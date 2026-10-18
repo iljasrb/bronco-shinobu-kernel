@@ -6,7 +6,7 @@ Includes BakaSU, SUSFS v2.3.0 and [NoMount](https://github.com/maxsteeel/nomount
 ## Download
 
 Open [Releases](https://github.com/iljasrb/bronco-shinobu-kernel/releases),
-download latest build. Each release also carries `bakasu-manager-<tag>-arm64-v8a.apk`, take in consideration that this manager will not auto-update, and I recommend using official builds.
+download latest build.
 
 Match the LineageOS build date in `INFO.md` to the build on your phone; the kernel
 branch tracks the same LineageOS branch (`lineage-24.0`).
@@ -37,7 +37,7 @@ fastboot reboot
 
 ## Root and NoMount
 
-Install the `bakasu-manager-…-arm64-v8a.apk`. Any SUSFS userspace
+Install the BakaSU manager: <https://bakasu.org/guide/install>. Any SUSFS userspace
 tools must support v2.3.0.
 
 For NoMount, install its [metamodule](https://github.com/maxsteeel/nomount/releases)
