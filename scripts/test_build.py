@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import textwrap
+import zipfile
 
 repo = Path(__file__).resolve().parents[1]
 
@@ -21,7 +22,8 @@ with tempfile.TemporaryDirectory(prefix="shinobu-build-") as temporary:
     (root / "scripts").mkdir()
     (root / "patches").mkdir()
     shutil.copy2(repo / "sources.env", root)
-    for name in ("refresh-susfs.sh", "apply-patches.sh"):
+    for name in ("refresh-susfs.sh", "apply-patches.sh", "make-anykernel3.sh",
+                 "anykernel3.sh.in"):
         shutil.copy2(repo / "scripts" / name, root / "scripts")
     upstream = root / "upstream"
     hooks = upstream / "50_add_susfs_in_gki-android13-5.10.patch"
@@ -87,7 +89,7 @@ cp "$TEST_UPSTREAM/${url##*/kernel_patches/}" "$output"
     for tag, annotated in (("lightweight", False), ("annotated", True)):
         args = ("-a", "-m", "tag") if annotated else ()
         run("git", "-C", str(seed), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
-            "tag", *args, tag)
+            "-c", "tag.gpgsign=false", "tag", *args, tag)
         script = 'latest_revision() {' + latest + '\nlatest_revision "$1" "$2"\n'
         assert run("bash", "-c", script, "test", seed.as_uri(), tag) == revision
     function = sync.split("prepare_repository() {", 1)[1].split('\nif [[ -n "$pull_target" ]]', 1)[0]
@@ -105,6 +107,60 @@ cp "$TEST_UPSTREAM/${url##*/kernel_patches/}" "$output"
     run(*command)
     assert compiler.read_text() == "compiler\n"
 
+    # Test AnyKernel3 packaging without downloading the upstream template.
+    out = root / "out"
+    kernel_image = out / "arch/arm64/boot/Image"
+    kernel_image.parent.mkdir(parents=True)
+    kernel_image.write_bytes(b"fake kernel image\n")
+    kernel_release = out / "include/config/kernel.release"
+    kernel_release.parent.mkdir(parents=True)
+    kernel_release.write_text("5.10.269-android13-0-g0e4b4e9fccd7-dirty\n")
+    ak3 = root / "AnyKernel3"
+    (ak3 / "META-INF/com/google/android").mkdir(parents=True)
+    (ak3 / "tools").mkdir()
+    update_binary = ak3 / "META-INF/com/google/android/update-binary"
+    update_binary.write_text("#!/bin/sh\nchmod -R 755 tools bin;\n")
+    update_binary.chmod(0o755)
+    for name in ("ak3-core.sh", "magiskboot", "busybox"):
+        file = ak3 / "tools" / name
+        file.write_text("# fake tool\n")
+        file.chmod(0o755)
+    (ak3 / "anykernel.sh").write_text("upstream template is replaced\n")
+    zip_path = out / "test-anykernel3.zip"
+    env = dict(os.environ, OUT_DIR=str(out), ANYKERNEL3_DIR=str(ak3),
+               KERNEL_IMAGE=str(kernel_image), KERNEL_RELEASE_FILE=str(kernel_release),
+               OUTPUT_ANYKERNEL3_ZIP=str(zip_path))
+    package = str(root / "scripts/make-anykernel3.sh")
+    run("bash", package, env=env)
+    generated = zip_path.read_bytes()
+    with zipfile.ZipFile(zip_path) as archive:
+        assert "Image" in archive.namelist()
+        assert "anykernel.sh" in archive.namelist()
+        assert "version" in archive.namelist()
+        assert "shinobu-info.txt" in archive.namelist()
+        script = archive.read("anykernel.sh").decode()
+        assert "device.name1=bronco" in script
+        assert "BLOCK=boot;" in script
+        assert "IS_SLOT_DEVICE=1;" in script
+        assert "5.10.269-android13-0-g0e4b4e9fccd7-dirty" in script
+        assert "Package build: LineageOS " in script
+        assert "@PROJECT_VERSION@" not in script
+        assert "@KERNEL_RELEASE@" not in script
+        assert "@LINEAGEOS_BUILD@" not in script
+        assert "NO_MAGISK_CHECK=1;" in script
+        info = archive.getinfo("META-INF/com/google/android/update-binary")
+        assert (info.external_attr >> 16) & 0o777 == 0o755
+    run("bash", package, env=env)
+    assert zip_path.read_bytes() == generated
+    core = ak3 / "tools/ak3-core.sh"
+    core.write_text("# fake tool\n[ $? == 1 ] && splitfail=1;\n")
+    run("bash", package, env=env, ok=False)
+    assert zip_path.read_bytes() == generated
+    core.write_text("# fake tool\n")
+    update_binary.write_text("#!/bin/sh\n")
+    run("bash", package, env=env, ok=False)
+    assert zip_path.read_bytes() == generated
+
     workflow = (repo / ".github/workflows/build.yml").read_text()
     assert "\n  tag:" not in workflow and "git push" not in workflow
     assert "branches: [main, dev]" in workflow and "    paths:" not in workflow
@@ -114,6 +170,11 @@ cp "$TEST_UPSTREAM/${url##*/kernel_patches/}" "$output"
     assert "          path: out\n" not in publish
     assert "            inputs/boot.img\n" in workflow
     assert "            out/.config\n" in workflow and "include-hidden-files: true" in workflow
+    assert "out/shinobu-kernel-*-anykernel3.zip\n" in workflow
+    assert "out/shinobu-kernel-*-anykernel3.zip.sha\n" in workflow
+    update_workflow = (repo / ".github/workflows/update.yml").read_text()
+    assert "out/shinobu-kernel-*-anykernel3.zip\n" in update_workflow
+    assert "out/shinobu-kernel-*-anykernel3.zip.sha\n" in update_workflow
     step = workflow.split("      - name: Load project version\n", 1)[1].split("\n      - name:", 1)[0]
     step = textwrap.dedent(step.split("run: |\n", 1)[1])
     run("git", "init", "-q", str(root))
@@ -153,4 +214,15 @@ cp "$TEST_UPSTREAM/${url##*/kernel_patches/}" "$output"
     image.write_bytes(b"invalid kernel")
     run("python3", "-c", extract, str(image), ok=False)
 
-print("PASS: SUSFS reproduction, pin guard, sparse checkout, dev CI, release bumps and gzip kernels")
+    build_script = (repo / "build.sh").read_text()
+    assert '"$script_dir/make-anykernel3.sh"' in build_script
+    assert 'release_name-anykernel3.zip' in build_script
+    manifest = (repo / "sources.env").read_text()
+    assert "ANYKERNEL3_REVISION=" in manifest
+    assert "ANYKERNEL3_DIRECTORY=" in manifest
+    sync_text = (repo / "sync-sources.sh").read_text()
+    assert "anykernel3" in sync_text
+    assert 'prepare_repository "$ANYKERNEL3_DIRECTORY"' in sync_text
+
+print("PASS: SUSFS reproduction, pin guard, sparse checkout, dev CI, release bumps, "
+      "AnyKernel3 packaging and gzip kernels")

@@ -16,11 +16,15 @@ readonly script_dir="$root_dir/scripts"
 # shellcheck disable=SC1091
 source "$source_manifest"
 
+readonly out_dir="${OUT_DIR:-$root_dir/out}"
+
 printf '%s\n' 'ThinkPhone Shinobu Kernel'
 printf 'Project version: %s\n' "$PROJECT_VERSION"
 printf 'Kernel revision: %s\n' "$KERNEL_REVISION"
 printf 'Boot image: %s\n' "${INPUT_BOOT_IMG:-$root_dir/inputs/boot.img}"
-printf 'Output image: %s\n' "${OUTPUT_BOOT_IMG:-$root_dir/out/boot-custom.img}"
+printf 'Output image: %s\n' "${OUTPUT_BOOT_IMG:-$out_dir/boot-custom.img}"
+printf 'Output AnyKernel3: %s\n' \
+    "${OUTPUT_ANYKERNEL3_ZIP:-$out_dir/shinobu-kernel-${PROJECT_VERSION}-anykernel3.zip}"
 
 "$script_dir/integrate-bakasu.sh"
 "$script_dir/apply-patches.sh"
@@ -30,9 +34,14 @@ printf 'Output image: %s\n' "${OUTPUT_BOOT_IMG:-$root_dir/out/boot-custom.img}"
 "$script_dir/build-kernel.sh"
 "$script_dir/make-boot-image.sh"
 
-readonly out_dir="${OUT_DIR:-$root_dir/out}"
 readonly output_boot_img="${OUTPUT_BOOT_IMG:-$out_dir/boot-custom.img}"
 readonly input_boot_img="${INPUT_BOOT_IMG:-$root_dir/inputs/boot.img}"
+readonly release_name="shinobu-kernel-${PROJECT_VERSION}"
+readonly release_img="$out_dir/$release_name.img"
+readonly release_zip="${OUTPUT_ANYKERNEL3_ZIP:-$out_dir/$release_name-anykernel3.zip}"
+
+OUTPUT_ANYKERNEL3_ZIP="$release_zip" "$script_dir/make-anykernel3.sh"
+
 readonly manifest_path="$out_dir/build-manifest"
 {
     printf 'project_version=%s\n' "$PROJECT_VERSION"
@@ -47,6 +56,8 @@ readonly manifest_path="$out_dir/build-manifest"
     printf 'susfs_revision=%s\n' "$SUSFS_REVISION"
     printf 'nomount_revision=%s\n' \
         "$(git -C "$root_dir/$NOMOUNT_DIRECTORY" rev-parse HEAD)"
+    printf 'anykernel3_revision=%s\n' \
+        "$(git -C "$root_dir/$ANYKERNEL3_DIRECTORY" rev-parse HEAD)"
     printf 'mkbootimg_revision=%s\n' \
         "$(git -C "$root_dir/$MKBOOTIMG_DIRECTORY" rev-parse HEAD)"
     printf 'clang_ref=%s\n' "$ANDROID_CLANG_REF"
@@ -56,6 +67,8 @@ readonly manifest_path="$out_dir/build-manifest"
         "$(sha256sum "$input_boot_img" | cut -d' ' -f1)"
     printf 'output_boot_sha256=%s\n' \
         "$(sha256sum "$output_boot_img" | cut -d' ' -f1)"
+    printf 'anykernel3_sha256=%s\n' \
+        "$(sha256sum "$release_zip" | cut -d' ' -f1)"
     printf 'config_sha256=%s\n' "$(sha256sum "$out_dir/.config" | cut -d' ' -f1)"
     printf '%s\n' '[patches]'
     (cd "$root_dir/patches" && sha256sum -- *.patch) 2>/dev/null || true
@@ -66,13 +79,16 @@ readonly kernel_release="$(<"$out_dir/include/config/kernel.release")"
 readonly bakasu_describe="$(git -C "$root_dir/$BAKASU_DIRECTORY" describe --tags --always 2>/dev/null || true)"
 readonly susfs_version="$(sed -n 's/^#define SUSFS_VERSION "\(.*\)"/\1/p' "$root_dir/$KERNEL_DIRECTORY/include/linux/susfs.h" 2>/dev/null | head -1)"
 readonly nomount_version="$(sed -n 's/^version=//p' "$root_dir/$NOMOUNT_DIRECTORY/module/module.prop" 2>/dev/null | head -1)"
-readonly release_name="shinobu-kernel-${PROJECT_VERSION}"
-readonly release_img="$out_dir/$release_name.img"
 readonly boot_image_directory="${BOOT_IMAGE_URL%/*}"
 readonly lineageos_build="${boot_image_directory##*/}"
 
 cp "$output_boot_img" "$release_img"
 (cd "$out_dir" && sha256sum "$release_name.img" > "$release_name.img.sha")
+(
+    cd "$(dirname -- "$release_zip")" &&
+        sha256sum "$(basename -- "$release_zip")" > "$(basename -- "$release_zip").sha"
+)
+readonly anykernel3_sha="$(cut -d' ' -f1 "$release_zip.sha")"
 
 {
     printf '# ThinkPhone Shinobu Kernel v%s\n\n' "$PROJECT_VERSION"
@@ -86,10 +102,21 @@ cp "$output_boot_img" "$release_img"
     printf '| SUSFS | %s |\n' "$susfs_version"
     printf '| NoMount | %s |\n' "$nomount_version"
     printf '| Built | %s |\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    printf '| SHA-256 | `%s` |\n' "$(cut -d' ' -f1 "$release_img.sha")"
+    printf '| Boot image SHA-256 | `%s` |\n' "$(cut -d' ' -f1 "$release_img.sha")"
+    printf '| AnyKernel3 ZIP | `%s` |\n' "$(basename -- "$release_zip")"
+    printf '| AnyKernel3 SHA-256 | `%s` |\n' "$anykernel3_sha"
     printf '\nInstall the BakaSU manager from https://bakasu.org/guide/install. For NoMount,\n'
-    printf 'flash its metamodule too. Always flash the LineageOS build listed above.\n'
-    printf 'Full instructions: README.\n'
+    printf 'flash its metamodule too. The AnyKernel3 ZIP is for BakaSU'"'"'s kernel flash\n'
+    printf 'screen and requires current root; after an OTA, flash it to the inactive slot\n'
+    printf 'before rebooting. The installed kernel does not survive an OTA by itself.\n'
+    printf 'The LineageOS build listed above is the validated target; an exact\n'
+    printf 'version/build match is recommended but not necessary. The installer warns\n'
+    printf 'on a mismatch and continues.\n'
+    printf '\nBakaSU may auto-detect the KMI as android13-5.10 because LineageOS uses the\n'
+    printf 'vendor label -android13-0. The actual KMI is android12-5.10. The AnyKernel3\n'
+    printf 'package avoids LKM/KMI selection entirely.\n'
+    printf '\nFull instructions: README.\n'
 } > "$out_dir/INFO.md"
 
-printf 'Created %s (%s), %s.sha, INFO.md\n' "$release_img" "$output_boot_img" "$release_name"
+printf 'Created %s (%s), release checksums, %s, and INFO.md\n' \
+    "$release_img" "$output_boot_img" "$release_zip"

@@ -64,6 +64,8 @@ jobs:
           path: |
             out/shinobu-kernel-*.img
             out/shinobu-kernel-*.img.sha
+            out/shinobu-kernel-*-anykernel3.zip
+            out/shinobu-kernel-*-anykernel3.zip.sha
             out/INFO.md
             out/build-manifest
             out/.config
@@ -91,5 +93,7 @@ jobs:
           files: |
             out/shinobu-kernel-*.img
             out/shinobu-kernel-*.img.sha
+            out/shinobu-kernel-*-anykernel3.zip
+            out/shinobu-kernel-*-anykernel3.zip.sha
             out/INFO.md
             out/build-manifest

@@ -11,8 +11,8 @@ usage() {
     cat <<'EOF'
 Usage:
   ./sync-sources.sh --reset
-  ./sync-sources.sh --pull-latest {all|lineage|bakasu|susfs|nomount|mkbootimg|clang} --reset
-  ./sync-sources.sh --pull-latest {all|lineage|bakasu|susfs|nomount|mkbootimg|clang} --pins-only
+  ./sync-sources.sh --pull-latest {all|lineage|bakasu|susfs|nomount|anykernel3|mkbootimg|clang} --reset
+  ./sync-sources.sh --pull-latest {all|lineage|bakasu|susfs|nomount|anykernel3|mkbootimg|clang} --pins-only
 
 Synchronize source trees to the exact revisions in sources.env.
 --reset discards local changes and untracked files inside those source trees.
@@ -217,6 +217,7 @@ patterns = {
     "BAKASU_REVISION": r"[0-9a-f]{40}",
     "SUSFS_REVISION": r"[0-9a-f]{40}",
     "NOMOUNT_REVISION": r"[0-9a-f]{40}",
+    "ANYKERNEL3_REVISION": r"[0-9a-f]{40}",
     "MKBOOTIMG_REVISION": r"[0-9a-f]{40}",
     "ANDROID_CLANG_REVISION": r"[0-9a-f]{40}",
     "BOOT_IMAGE_URL": r"https://mirrorbits\.lineageos\.org/full/bronco/[0-9]{8}/boot\.img",
@@ -256,6 +257,7 @@ pull_latest() {
             updates+="BAKASU_REVISION=$(latest_revision "$BAKASU_REPOSITORY" "$BAKASU_BRANCH")"$'\n'
             updates+="SUSFS_REVISION=$(latest_revision "$SUSFS_REPOSITORY" "$SUSFS_BRANCH")"$'\n'
             updates+="NOMOUNT_REVISION=$(latest_revision "$NOMOUNT_REPOSITORY" "$NOMOUNT_BRANCH")"$'\n'
+            updates+="ANYKERNEL3_REVISION=$(latest_revision "$ANYKERNEL3_REPOSITORY" "$ANYKERNEL3_BRANCH")"$'\n'
             updates+="MKBOOTIMG_REVISION=$(latest_revision "$MKBOOTIMG_REPOSITORY" "$MKBOOTIMG_BRANCH")"$'\n'
             updates+="ANDROID_CLANG_REVISION=$(latest_revision "$ANDROID_CLANG_REPOSITORY" "$ANDROID_CLANG_REF")"$'\n'
             ;;
@@ -270,6 +272,9 @@ pull_latest() {
             ;;
         nomount)
             updates="NOMOUNT_REVISION=$(latest_revision "$NOMOUNT_REPOSITORY" "$NOMOUNT_BRANCH")"
+            ;;
+        anykernel3)
+            updates="ANYKERNEL3_REVISION=$(latest_revision "$ANYKERNEL3_REPOSITORY" "$ANYKERNEL3_BRANCH")"
             ;;
         mkbootimg)
             updates="MKBOOTIMG_REVISION=$(latest_revision "$MKBOOTIMG_REPOSITORY" "$MKBOOTIMG_BRANCH")"
@@ -359,6 +364,7 @@ prepare_repository "$KERNEL_DIRECTORY" "$KERNEL_REPOSITORY" "$KERNEL_REVISION"
 prepare_repository "$DEVICE_TREE_DIRECTORY" "$DEVICE_TREE_REPOSITORY" "$DEVICE_TREE_REVISION"
 prepare_repository "$BAKASU_DIRECTORY" "$BAKASU_REPOSITORY" "$BAKASU_REVISION"
 prepare_repository "$NOMOUNT_DIRECTORY" "$NOMOUNT_REPOSITORY" "$NOMOUNT_REVISION"
+prepare_repository "$ANYKERNEL3_DIRECTORY" "$ANYKERNEL3_REPOSITORY" "$ANYKERNEL3_REVISION"
 prepare_repository "$MKBOOTIMG_DIRECTORY" "$MKBOOTIMG_REPOSITORY" "$MKBOOTIMG_REVISION"
 prepare_repository "tools/android-clang" "$ANDROID_CLANG_REPOSITORY" \
     "$ANDROID_CLANG_REVISION" "$ANDROID_CLANG_DIRECTORY"
