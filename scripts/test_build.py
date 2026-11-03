@@ -114,7 +114,7 @@ cp "$TEST_UPSTREAM/${url##*/kernel_patches/}" "$output"
     kernel_image.write_bytes(b"fake kernel image\n")
     kernel_release = out / "include/config/kernel.release"
     kernel_release.parent.mkdir(parents=True)
-    kernel_release.write_text("5.10.269-android13-0-g0e4b4e9fccd7-dirty\n")
+    kernel_release.write_text("5.10.269-android12-0-g0e4b4e9fccd7-dirty\n")
     ak3 = root / "AnyKernel3"
     (ak3 / "META-INF/com/google/android").mkdir(parents=True)
     (ak3 / "tools").mkdir()
@@ -142,7 +142,7 @@ cp "$TEST_UPSTREAM/${url##*/kernel_patches/}" "$output"
         assert "device.name1=bronco" in script
         assert "BLOCK=boot;" in script
         assert "IS_SLOT_DEVICE=1;" in script
-        assert "5.10.269-android13-0-g0e4b4e9fccd7-dirty" in script
+        assert "5.10.269-android12-0-g0e4b4e9fccd7-dirty" in script
         assert "Package build: LineageOS " in script
         assert "@PROJECT_VERSION@" not in script
         assert "@KERNEL_RELEASE@" not in script

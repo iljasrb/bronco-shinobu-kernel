@@ -112,9 +112,8 @@ readonly anykernel3_sha="$(cut -d' ' -f1 "$release_zip.sha")"
     printf 'The LineageOS build listed above is the validated target; an exact\n'
     printf 'version/build match is recommended but not necessary. The installer warns\n'
     printf 'on a mismatch and continues.\n'
-    printf '\nBakaSU may auto-detect the KMI as android13-5.10 because LineageOS uses the\n'
-    printf 'vendor label -android13-0. The actual KMI is android12-5.10. The AnyKernel3\n'
-    printf 'package avoids LKM/KMI selection entirely.\n'
+    printf '\nThe kernel advertises android12-5.10, matching its module ABI, so KMI-aware\n'
+    printf 'managers choose the matching module.\n'
     printf '\nFull instructions: README.\n'
 } > "$out_dir/INFO.md"
 

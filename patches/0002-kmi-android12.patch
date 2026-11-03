@@ -1,0 +1,13 @@
+diff --git a/arch/arm64/configs/vendor/waipio_GKI.config b/arch/arm64/configs/vendor/waipio_GKI.config
+index b27fc3177..682dae76d 100644
+--- a/arch/arm64/configs/vendor/waipio_GKI.config
++++ b/arch/arm64/configs/vendor/waipio_GKI.config
+@@ -85,7 +85,7 @@ CONFIG_IPC_LOG_MINIDUMP_BUFFERS=16
+ CONFIG_LEDS_QPNP_VIBRATOR_LDO=m
+ CONFIG_LEDS_QTI_FLASH=m
+ CONFIG_LEDS_QTI_TRI_LED=m
+-CONFIG_LOCALVERSION="-android13-0"
++CONFIG_LOCALVERSION="-android12-0"
+ CONFIG_MAC80211=m
+ # CONFIG_MAC80211_DEBUGFS is not set
+ # CONFIG_MAC80211_DEBUG_MENU is not set

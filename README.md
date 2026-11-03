@@ -29,8 +29,9 @@ an OTA, select the inactive slot in BakaSU before rebooting. The kernel does not
 survive an OTA by itself. Do not use BakaSU's LKM "Install to inactive slot
 (After OTA)" flow; this kernel already contains BakaSU.
 
-The actual KMI is **android12-5.10**, despite LineageOS's `-android13-0` vendor
-label. The AnyKernel3 ZIP avoids LKM/KMI selection.
+The kernel advertises **android12-5.10**, matching its actual module ABI, so
+KMI-aware managers choose the matching module. The AnyKernel3 ZIP replaces only
+the kernel and needs no LKM/KMI selection.
 
 ## Install with fastboot
 
