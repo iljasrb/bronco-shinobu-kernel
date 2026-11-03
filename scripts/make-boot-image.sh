@@ -63,8 +63,16 @@ PY
 )"
 readonly input_kernel_release
 readonly kernel_release="$(<"$kernel_release_file")"
-[[ "$kernel_release" == "$input_kernel_release" ||
-   "$kernel_release" == "$input_kernel_release-dirty" ]] || {
+
+# The input boot image carries LineageOS's kernel release, while this kernel's
+# config advertises its actual KMI. The label may therefore differ, but the
+# version and git revision must agree: the ramdisk, cmdline and DTB come from
+# the input image and belong to the kernel built here.
+normalized_release() {
+    local release="${1%-dirty}"
+    printf '%s\n' "$release" | sed -E 's/-android[0-9]+-/-android-/'
+}
+[[ "$(normalized_release "$kernel_release")" == "$(normalized_release "$input_kernel_release")" ]] || {
     printf 'input boot image kernel release is %s; built kernel release is %s\n' \
         "$input_kernel_release" "$kernel_release" >&2
     exit 1
