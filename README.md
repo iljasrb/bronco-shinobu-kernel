@@ -1,7 +1,7 @@
 # ThinkPhone Shinobu Kernel
 
 Custom Linux 5.10 kernel for the Motorola ThinkPhone (`bronco`) on LineageOS
-24.0 (Android 17), with BakaSU, SUSFS v2.3.0 and NoMount.
+24.0 (Android 17), with BakaSU, SUSFS v2.4.0 and NoMount.
 
 ## Compatibility
 
