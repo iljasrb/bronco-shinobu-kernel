@@ -173,6 +173,12 @@ cp "$TEST_UPSTREAM/${url##*/kernel_patches/}" "$output"
     assert "out/shinobu-kernel-*-anykernel3.zip\n" in workflow
     assert "out/shinobu-kernel-*-anykernel3.zip.sha\n" in workflow
     update_workflow = (repo / ".github/workflows/update.yml").read_text()
+    assert "name: update source pins" in update_workflow
+    assert "./sync-sources.sh --pull-latest all --pins-only" in update_workflow
+    assert "./scripts/refresh-susfs.sh" in update_workflow
+    assert "patches/0001-susfs.patch" in update_workflow
+    assert "automation/source-update" in update_workflow
+    assert "lineage-update" not in update_workflow
     assert "out/shinobu-kernel-*-anykernel3.zip\n" in update_workflow
     assert "out/shinobu-kernel-*-anykernel3.zip.sha\n" in update_workflow
     step = workflow.split("      - name: Load project version\n", 1)[1].split("\n      - name:", 1)[0]
