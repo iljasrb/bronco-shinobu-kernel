@@ -163,6 +163,7 @@ cp "$TEST_UPSTREAM/${url##*/kernel_patches/}" "$output"
 
     workflow = (repo / ".github/workflows/build.yml").read_text()
     assert "\n  tag:" not in workflow and "git push" not in workflow
+    assert "fetch-depth: 0" in workflow
     assert "branches: [main, dev]" in workflow and "    paths:" not in workflow
     assert "    tags:" not in workflow
     publish = workflow.split("\n  publish:\n", 1)[1]
